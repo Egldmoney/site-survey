@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Site Survey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#E4E6E1;--panel:#F8F8F5;--raise:#FFFFFF;--ink:#1A1D20;--muted:#5C6268;--line:#C8CCC6;
+  --yellow:#FFD21F;--onyellow:#1A1D20;--red:#D7261E;--stage:#2B2F33;
+  --shadow:0 1px 0 rgba(0,0,0,.05),0 10px 26px rgba(30,35,40,.14);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1C1F22;--panel:#25292D;--raise:#2E3337;--ink:#ECEDE9;--muted:#A0A7AD;--line:#3A4045;--stage:#141618;
+    --shadow:0 10px 26px rgba(0,0,0,.5);color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1C1F22;--panel:#25292D;--raise:#2E3337;--ink:#ECEDE9;--muted:#A0A7AD;--line:#3A4045;--stage:#141618;
+  --shadow:0 10px 26px rgba(0,0,0,.5);color-scheme:dark;
+}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16px/1.4 Barlow,"Segoe UI",Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+[hidden]{display:none!important}
+
+/* Home */
+.hd{display:flex;align-items:center;gap:10px;padding:14px 16px 4px;max-width:960px;margin:0 auto}
+.mark{width:36px;height:36px;flex:none;border-radius:8px;background:var(--yellow);display:grid;place-items:center;color:#1A1D20}
+#projName{flex:1;min-width:0;font:600 26px/1.1 "Barlow Condensed",Barlow,sans-serif;border:0;background:transparent;padding:6px 2px;border-bottom:2px solid transparent;border-radius:0}
+#projName::placeholder{color:var(--muted)}
+#projName:focus{outline:none;border-bottom-color:var(--yellow)}
+.icon-btn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center}
+.icon-btn:hover{background:var(--raise)}
+.sub{max-width:960px;margin:0 auto;padding:0 18px 8px;color:var(--muted);font-size:15px}
+#pages{max-width:960px;margin:0 auto;padding:10px 16px 130px;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:30px 26px}
+.page{display:flex;flex-direction:column;gap:12px}
+.sheet{position:relative;aspect-ratio:1654/2339;background:#fff;color:#111;box-shadow:var(--shadow);container-type:inline-size;overflow:hidden}
+.sheet .ttl{position:absolute;left:4.8%;right:4.8%;top:2.2%;font:500 3.2cqw/1.3 Barlow,Arial,sans-serif;text-align:center;border:0;background:transparent;color:#111;padding:.4cqw;border-radius:0}
+.sheet .ttl:focus{outline:2px solid var(--yellow);outline-offset:0}
+.cell{position:absolute;background:#fff;overflow:hidden}
+.cell img{width:100%;height:100%;object-fit:contain;display:block}
+.cell:hover{outline:2px solid var(--yellow)}
+.legph{position:absolute;display:grid;grid-template-columns:1fr 1fr;gap:1.2cqw 3cqw;align-content:start}
+.legph i{display:block;height:1.1cqw;background:#e6e7e4;border-radius:1px}
+.sheet .logo{position:absolute;left:4.8%;bottom:3%;height:4.4%;max-width:22%;object-fit:contain;object-position:left bottom}
+.sheet .pnum{position:absolute;right:4.8%;bottom:3.4%;font-size:1.8cqw;color:#666}
+.sheet .empty{position:absolute;left:10%;right:10%;top:38%;text-align:center;color:#8a8f94;font-size:3.4cqw;line-height:1.4}
+.pctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pctl .count{margin-left:auto;color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.seg{display:inline-flex;background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:2px;flex:none}
+.seg button{min-width:36px;height:36px;padding:0 10px;border-radius:8px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 14px;border-radius:12px;font-weight:600;white-space:nowrap}
+.btn.ghost{background:var(--raise);border:1px solid var(--line)}
+.btn.primary{background:var(--yellow);color:var(--onyellow)}
+.btn.danger{color:var(--red)}
+.btn.small{height:38px;padding:0 12px;font-size:15px}
+.dock{position:fixed;left:0;right:0;bottom:0;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--bg) 35%);display:flex;justify-content:center;align-items:center;gap:10px;z-index:5}
+.shoot{position:relative;height:60px;padding:0 28px 0 40px;border-radius:14px;background:var(--yellow);color:#1A1D20;font:700 22px/1 "Barlow Condensed",Barlow,sans-serif;white-space:nowrap;display:inline-flex;align-items:center;gap:10px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.shoot::before{content:"";position:absolute;left:0;top:0;bottom:0;width:16px;background:repeating-linear-gradient(135deg,#1A1D20 0 7px,var(--yellow) 7px 14px)}
+.shoot svg.i{width:26px;height:26px}
+
+/* Editor */
+#editor{position:fixed;top:0;left:0;right:0;bottom:0;z-index:20;display:none;flex-direction:column;background:var(--stage);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#editor.on{display:flex}
+.etop{display:flex;align-items:center;gap:2px;padding:6px;background:var(--panel);border-bottom:1px solid var(--line)}
+.etitle{flex:1;min-width:0;font:600 17px "Barlow Condensed",Barlow,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;color:var(--muted)}
+.ib{width:42px;height:42px;border-radius:10px;display:grid;place-items:center}
+.ib:disabled{opacity:.3}
+.ib:not(:disabled):hover{background:var(--raise)}
+.tb{height:42px;display:inline-flex;align-items:center;gap:4px;padding:0 10px;border-radius:10px;font-weight:600}
+.tb.primary{background:var(--yellow);color:#1A1D20;padding:0 12px}
+#stage{flex:1;position:relative;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);max-width:calc(100% - 20px);background:rgba(20,22,24,.82);color:#fff;font-size:14px;padding:6px 8px 6px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;pointer-events:auto}
+#hint span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hint button{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.15);flex:none}
+#hint button svg{width:16px;height:16px}
+.ebottom{background:var(--panel);border-top:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:8px;padding:6px 8px;overflow-x:auto;scrollbar-width:none}
+.row::-webkit-scrollbar{display:none}
+.textrow input{flex:1;min-width:140px;height:40px;border:1px solid var(--line);background:var(--raise);border-radius:10px;padding:0 12px}
+.textrow input:focus{outline:2px solid var(--yellow);outline-offset:0}
+.chips{padding-top:0}
+.chip{flex:none;height:32px;padding:0 12px;border-radius:999px;background:var(--raise);border:1px solid var(--line);font-size:14px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.on{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.sw{display:flex;gap:6px;flex:none}
+.swatch{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);flex:none;position:relative}
+.swatch.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ink)}
+.swatch.none{background:linear-gradient(135deg,transparent 45%,var(--red) 45% 55%,transparent 55%),var(--raise)}
+.tog{height:36px;min-width:44px;padding:0 8px;border-radius:10px;border:1px solid var(--line);background:var(--raise);display:grid;place-items:center;flex:none}
+.tog.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sep{width:1px;height:26px;background:var(--line);flex:none}
+.tools{gap:2px;padding:4px 6px 6px}
+.tool{flex:1 0 52px;height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-weight:600;color:var(--muted)}
+.tool.on{background:var(--yellow);color:#1A1D20}
+.tool svg.i{width:22px;height:22px}
+
+/* Overlays */
+.ov{position:fixed;inset:0;z-index:40;background:rgba(10,12,14,.55);display:none;align-items:flex-end;justify-content:center}
+.ov.on{display:flex}
+.panel{background:var(--panel);color:var(--ink);width:100%;max-width:560px;max-height:86%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+@media (min-width:640px){.ov{align-items:center}.panel{border-radius:18px;max-height:84vh}}
+.panel h2{font:700 24px/1.1 "Barlow Condensed",Barlow,sans-serif;margin:0 0 4px}
+.panel h3{font:600 17px/1.2 Barlow,sans-serif;margin:18px 0 8px;color:var(--muted)}
+.panel p{margin:4px 0 12px;color:var(--muted)}
+.phead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.phead h2{flex:1;margin:0}
+.plist{display:flex;flex-direction:column;gap:4px}
+.prow{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;text-align:left;width:100%}
+.prow:hover{background:var(--raise)}
+.prow canvas{flex:none;width:64px;height:34px;background:#5b6166;border-radius:6px}
+.prow .lbl{flex:1;min-width:0;font-size:15px;line-height:1.3}
+.prow .x{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--red);flex:none}
+.prow .tag{flex:none;width:64px;height:30px;border-radius:6px;background:#fff;color:#111;font-size:11px;display:grid;place-items:center;border:1px solid var(--line)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.field:last-child{border-bottom:0}
+.field img{max-height:44px;max-width:140px;object-fit:contain;background:#fff;border-radius:4px;padding:2px}
+.switch{width:52px;height:30px;border-radius:999px;background:var(--line);position:relative;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.switch.on{background:var(--ink)}
+.switch.on::after{left:25px}
+.dlg{background:var(--panel);width:calc(100% - 32px);max-width:440px;border-radius:16px;padding:18px;margin:auto}
+#dlg{align-items:center}
+.dlg h2{font:700 22px "Barlow Condensed",Barlow,sans-serif;margin:0 0 6px}
+.dlg p{margin:0 0 12px;color:var(--muted)}
+.dlg textarea{width:100%;min-height:76px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--raise);resize:vertical}
+.dlg textarea:focus{outline:2px solid var(--yellow);outline-offset:0}
+.dlg .actions{justify-content:flex-end}
+#preview .panel{max-width:720px}
+.pvwrap{background:var(--bg);border-radius:10px;padding:12px;display:flex;justify-content:center}
+.pvwrap canvas{width:100%;max-width:520px;height:auto;box-shadow:var(--shadow);background:#fff}
+.pvnav{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 0;color:var(--muted);font-variant-numeric:tabular-nums}
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s;max-width:calc(100% - 32px);text-align:center}
+#toast.on{opacity:1}
+#busy{position:fixed;inset:0;z-index:70;background:rgba(10,12,14,.45);display:none;place-items:center;color:#fff;font-weight:600}
+#busy.on{display:grid}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="home">
+  <header class="hd">
+    <div class="mark" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+    <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
+    <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
+  </header>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page.</p>
+  <main id="pages"></main>
+  <div class="dock">
+    <button id="btnGallery" class="btn ghost" aria-label="Add from gallery"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></button>
+    <button id="btnCamera" class="shoot"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Take photo</button>
+    <button id="btnExportAll" class="btn ghost"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>PDF</button>
+  </div>
+</div>
+
+<div id="editor" aria-label="Photo editor">
+  <div class="etop">
+    <button id="eDone" class="ib" aria-label="Done, back to pages"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div id="eTitle" class="etitle"></div>
+    <button id="eUndo" class="ib" aria-label="Undo"><svg class="i" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button id="eRedo" class="ib" aria-label="Redo"><svg class="i" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+    <button id="eDel" class="ib" aria-label="Delete selected"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+    <button id="eMore" class="ib" aria-label="More"><svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+    <button id="eNext" class="tb primary"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Next</button>
+  </div>
+  <div id="stage"><canvas id="cv"></canvas><div id="hint" hidden><span id="hintTxt"></span><button id="hintX" aria-label="Stop using this symbol"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+  <div class="ebottom">
+    <div id="textRow" class="row textrow">
+      <input id="txt" placeholder="Label text, stays until you change it" autocomplete="off" enterkeyhint="done">
+      <button id="tMinus" class="tog" aria-label="Smaller text">A−</button>
+      <button id="tPlus" class="tog" aria-label="Larger text">A+</button>
+    </div>
+    <div id="chips" class="row chips"></div>
+    <div class="row">
+      <div class="seg" id="targetSeg"><button data-t="stroke">Line</button><button data-t="fill">Fill</button></div>
+      <div id="swatches" class="sw"></div>
+      <div class="sep"></div>
+      <button id="dashBtn" class="tog" aria-label="Dashed line"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h3M10 12h4M18 12h3"/></svg></button>
+      <div class="seg" id="widthSeg"><button data-w="S">S</button><button data-w="M">M</button><button data-w="L">L</button></div>
+    </div>
+    <div id="tools" class="row tools"></div>
+  </div>
+</div>
+
+<div id="sheet" class="ov"><div class="panel" id="sheetPanel"></div></div>
+<div id="preview" class="ov"><div class="panel" id="pvPanel"></div></div>
+<div id="dlg" class="ov"><div class="dlg">
+  <h2 id="dlgT"></h2><p id="dlgP"></p>
+  <textarea id="dlgIn" rows="3"></textarea>
+  <div class="actions"><button id="dlgNo" class="btn ghost">Cancel</button><button id="dlgOk" class="btn primary">OK</button></div>
+</div></div>
+<div id="toast" role="status"></div>
+<div id="busy"><span id="busyTxt">Working…</span></div>
+
+<input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+<input type="file" id="galIn" accept="image/*" multiple hidden>
+<input type="file" id="logoIn" accept="image/*" hidden>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+const ICON = {
+  select:'<path d="M5 3l14 8-6 2-2 6z"/>',
+  pen:'<path d="M3 17c3-6 6 4 9-2s5-6 9-4"/>',
+  arrow:'<path d="M4 20 19 5"/><path d="M10 5h9v9"/>',
+  line:'<path d="M4 20 20 4"/>',
+  rect:'<rect x="4" y="6" width="16" height="12"/>',
+  ellipse:'<ellipse cx="12" cy="12" rx="9" ry="7"/>',
+  text:'<path d="M5 6h14M12 6v13"/>',
+  callout:'<rect x="10" y="3" width="11" height="8"/><path d="M12 11 4 20"/><path d="M4 15v5h5"/>',
+  legend:'<path d="M10 6h10M10 12h10M10 18h10"/><circle cx="5" cy="6" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="5" cy="18" r="1.5"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  dl:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  left:'<path d="M15 18l-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
+};
+const svg = n => `<svg class="i" viewBox="0 0 24 24">${ICON[n]}</svg>`;
+
+const COLORS = ['#FFD21F','#E3201B','#FF2BD6','#2AA7FF','#22C55E','#FF8A00','#FFFFFF','#1A1D20'];
+const W_MULT = {S:1.1, M:1.8, L:2.8};
+const SHAPES = ['arrow','line','rect','ellipse','pen'];
+const DEFAULT_PRESETS = [
+  {id:'s1', kind:'ellipse', small:true, stroke:'#FFD21F', fill:'#E3201B', dash:true, label:'Percez un trou de 16 mm pour faire passer le LSZH, puis refermez-le avec une pâte ignifuge.'},
+  {id:'s2', kind:'rect', stroke:'#FFD21F', fill:'#E3201B', dash:true, label:'Intro Eurofiber existant au niveau -1'},
+  {id:'s3', kind:'rect', stroke:'#E3201B', fill:null, dash:false, label:'Nouveau Budi à placer ici'},
+  {id:'s4', kind:'arrow', stroke:'#FFD21F', fill:null, dash:true, label:'Traject LSZH dans le chemin de câbles existant'},
+  {id:'s5', kind:'arrow', stroke:'#FF2BD6', fill:null, dash:true, label:'Traject LSZH du sous-sol au 2e étage via la gaine technique existante'},
+  {id:'s6', kind:'rect', stroke:'#2AA7FF', fill:null, dash:false, label:'La gaine technique existante au 0 étage'},
+  {id:'s7', kind:'rect', stroke:'#FFD21F', fill:'#E3201B', dash:true, label:'Placez ici l’ODF'},
+  {id:'s8', kind:'rect', stroke:'#22C55E', fill:null, dash:false, label:'Salle des serveurs au 2e étage'},
+  {id:'s9', kind:'line', stroke:'#E3201B', fill:null, dash:false, label:'Bac existant'},
+  {id:'s10', kind:'arrow', stroke:'#FF2BD6', fill:null, dash:false, label:'Perçage dans l’asphalte : PVC125mm – contenu : 1xDB7'},
+  {id:'s11', kind:'ellipse', stroke:'#FFD21F', fill:null, dash:false, label:'Placez un nouveau HH Eurofiber'},
+  {id:'s12', kind:'ellipse', stroke:'#2AA7FF', fill:null, dash:false, label:'Connectez 1xDB7 avec 1xDB2'},
+  {id:'s13', kind:'arrow', stroke:'#FFFFFF', fill:null, dash:true, label:'Traject LSZH dans le faux plafond'},
+  {id:'l1', kind:'callout', stroke:'#E3201B', label:'Bestaande traject DB2'},
+  {id:'l2', kind:'callout', stroke:'#E3201B', label:'Nieuwe traject DB7'},
+  {id:'l3', kind:'callout', stroke:'#E3201B', label:'Bestaande traject DB7'},
+  {id:'l4', kind:'callout', stroke:'#E3201B', label:'Traject DB7'},
+  {id:'l5', kind:'callout', stroke:'#E3201B', label:'Te koppelen 1xDB2 met 1xDB7'},
+  {id:'l6', kind:'callout', stroke:'#E3201B', label:'Te koppelen nieuwe 1xDB7 met bestaande 1xDB7'},
+  {id:'l7', kind:'callout', stroke:'#E3201B', label:'Doorsteek – PVC125mm – inhoud 1xDB7'},
+];
+const newPage = (title='Locatie 1: ') => ({id:uid(), title, layout:'grid', photos:[]});
+const defaultState = () => ({
+  project:{name:'', logo:null, legend:true},
+  pages:[newPage()],
+  presets:clone(DEFAULT_PRESETS),
+  recent:[], text:'', textMult:1,
+  style:{color:'#FFD21F', fill:null, dash:false, w:'M', target:'stroke'},
+  tool:'arrow', activePreset:null,
+});
+
+/* ---------- storage ---------- */
+const store = {
+  db:null, mem:new Map(),
+  async init(){
+    try{
+      this.db = await new Promise((res, rej) => {
+        const r = indexedDB.open('site-survey-v1', 1);
+        r.onupgradeneeded = () => { r.result.createObjectStore('photos', {keyPath:'id'}); r.result.createObjectStore('meta'); };
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    }catch(e){ this.db = null; }
+    try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+  },
+  req(st, mode, f){
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(st, mode); const r = f(t.objectStore(st));
+      t.oncomplete = () => res(r ? r.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  async get(st, k){ if(!this.db) return this.mem.get(st+':'+k); return this.req(st, 'readonly', s => s.get(k)); },
+  async put(st, v, k){ if(!this.db){ this.mem.set(st+':'+(k ?? v.id), v); return; } return this.req(st, 'readwrite', s => k === undefined ? s.put(v) : s.put(v, k)); },
+  async del(st, k){ if(!this.db){ this.mem.delete(st+':'+k); return; } return this.req(st, 'readwrite', s => s.delete(k)); },
+  async clearAll(){ if(!this.db){ this.mem.clear(); return; } await this.req('photos','readwrite', s => s.clear()); await this.req('meta','readwrite', s => s.clear()); },
+};
+
+let S = defaultState();
+const photos = new Map();
+const imgCache = new Map();
+let metaTimer = 0;
+function saveMeta(){ clearTimeout(metaTimer); metaTimer = setTimeout(() => store.put('meta', clone(S), 'state').catch(()=>toast('Couldn’t save. Storage may be full.')), 300); }
+
+function loadImg(rec){
+  if(imgCache.has(rec.id)) return imgCache.get(rec.id);
+  const p = new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(rec.blob); });
+  imgCache.set(rec.id, p); return p;
+}
+function loadDataImg(src){ return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+function mkCanvas(w, h){ const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+
+/* ---------- UI helpers ---------- */
+let toastT = 0;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+function busy(on, msg){ $('#busyTxt').textContent = msg || 'Working…'; $('#busy').classList.toggle('on', on); }
+function dialog({title, text='', value=null, ok='OK', cancel='Cancel'}){
+  return new Promise(res => {
+    const d = $('#dlg'), inp = $('#dlgIn');
+    $('#dlgT').textContent = title; $('#dlgP').textContent = text; $('#dlgP').hidden = !text;
+    inp.hidden = value === null; inp.value = value ?? '';
+    $('#dlgOk').textContent = ok; $('#dlgNo').textContent = cancel;
+    d.classList.add('on');
+    if(value !== null) setTimeout(() => { inp.focus(); inp.select(); }, 50);
+    const done = v => { d.classList.remove('on'); $('#dlgOk').onclick = $('#dlgNo').onclick = d.onclick = inp.onkeydown = null; res(v); };
+    $('#dlgOk').onclick = () => done(value === null ? true : inp.value.trim());
+    $('#dlgNo').onclick = () => done(value === null ? false : null);
+    d.onclick = e => { if(e.target === d) done(value === null ? false : null); };
+    inp.onkeydown = e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); done(inp.value.trim()); } };
+  });
+}
+const askText = (title, value='', ok='OK') => dialog({title, value, ok});
+const askConfirm = (title, text, ok) => dialog({title, text, ok});
+function openSheet(id, html, mount){ const o = $('#'+id); o.firstElementChild.innerHTML = html; o.classList.add('on'); o.onclick = e => { if(e.target === o) closeSheet(id); }; mount && mount(o.firstElementChild); }
+function closeSheet(id){ $('#'+id).classList.remove('on'); }
+
+/* ---------- downloads ---------- */
+let dlCap = null;
+try{ if(window.claude && window.claude.use) window.claude.use('downloads').then(d => { dlCap = d; }).catch(()=>{}); }catch(e){}
+async function saveFile(name, blob){
+  if(dlCap){
+    try{ await dlCap.save({filename:name, data:blob}); toast('Saved '+name); }
+    catch(e){ if(e && e.code === 'declined') return; toast('Couldn’t save the file: '+((e && (e.message || e.code)) || 'unknown error')); }
+    return;
+  }
+  const a = document.createElement('a'); const u = URL.createObjectURL(blob);
+  a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 4000); toast('Saved '+name);
+}
+const fileBase = () => (S.project.name || 'site-survey').replace(/[^\p{L}\p{N}\- _]+/gu, '').trim().replace(/\s+/g, '-') || 'site-survey';
+
+/* ---------- drawing ---------- */
+const FONT = s => `500 ${s}px Barlow, Arial, sans-serif`;
+const mctx = mkCanvas(4,4).getContext('2d');
+function norm(a){ return {x:Math.min(a.x, a.x+a.w), y:Math.min(a.y, a.y+a.h), w:Math.abs(a.w), h:Math.abs(a.h)}; }
+function wrap(ctx, text, maxW){
+  const out = [];
+  String(text || ' ').split('\n').forEach(par => {
+    const words = par.split(/\s+/).filter(Boolean); if(!words.length){ out.push(''); return; }
+    let line = '';
+    for(const w of words){ const t = line ? line+' '+w : w; if(ctx.measureText(t).width > maxW && line){ out.push(line); line = w; } else line = t; }
+    out.push(line);
+  });
+  return out;
+}
+function labelBox(a){
+  mctx.font = FONT(a.size);
+  const lines = wrap(mctx, a.text, a.maxW);
+  const pad = a.size*0.4, lh = a.size*1.22;
+  let tw = 0; lines.forEach(l => tw = Math.max(tw, mctx.measureText(l).width));
+  return {x:a.x, y:a.y, w:tw+pad*2, h:lines.length*lh+pad*1.3, lines, pad, lh};
+}
+function edgePoint(b, tx, ty){
+  const cx = b.x+b.w/2, cy = b.y+b.h/2, dx = tx-cx, dy = ty-cy;
+  if(!dx && !dy) return {x:cx, y:cy, inside:true};
+  const t = Math.min(dx ? (b.w/2)/Math.abs(dx) : Infinity, dy ? (b.h/2)/Math.abs(dy) : Infinity);
+  return {x:cx+dx*t, y:cy+dy*t, inside:t >= 1};
+}
+function arrowHead(ctx, x1, y1, x2, y2, size, color){
+  const ang = Math.atan2(y2-y1, x2-x1);
+  ctx.save(); ctx.setLineDash([]); ctx.fillStyle = color; ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - size*Math.cos(ang-0.42), y2 - size*Math.sin(ang-0.42));
+  ctx.lineTo(x2 - size*Math.cos(ang+0.42), y2 - size*Math.sin(ang+0.42));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function strokeLine(ctx, a, x1, y1, x2, y2, head){
+  ctx.lineWidth = a.sw; ctx.strokeStyle = a.stroke;
+  ctx.setLineDash(a.dash ? [a.sw*2.6, a.sw*1.9] : []); ctx.lineCap = a.dash ? 'butt' : 'round';
+  const hs = a.sw*4.2, len = Math.hypot(x2-x1, y2-y1);
+  let ex = x2, ey = y2;
+  if(head && len > 0){ const k = Math.max(0, len - hs*0.75)/len; ex = x1+(x2-x1)*k; ey = y1+(y2-y1)*k; }
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(ex, ey); ctx.stroke();
+  if(head && len > 0) arrowHead(ctx, x1, y1, x2, y2, hs, a.stroke);
+}
+function drawAnn(ctx, a){
+  ctx.save(); ctx.lineJoin = 'round';
+  if(a.t === 'rect' || a.t === 'ellipse'){
+    const r = norm(a); ctx.beginPath();
+    if(a.t === 'rect') ctx.rect(r.x, r.y, r.w, r.h);
+    else ctx.ellipse(r.x+r.w/2, r.y+r.h/2, Math.max(r.w/2, .5), Math.max(r.h/2, .5), 0, 0, Math.PI*2);
+    if(a.fill){ ctx.fillStyle = a.fill; ctx.fill(); }
+    if(a.stroke){ ctx.lineWidth = a.sw; ctx.strokeStyle = a.stroke; ctx.setLineDash(a.dash ? [a.sw*2.6, a.sw*1.9] : []); ctx.stroke(); }
+  } else if(a.t === 'line' || a.t === 'arrow'){
+    strokeLine(ctx, a, a.x1, a.y1, a.x2, a.y2, a.t === 'arrow');
+  } else if(a.t === 'pen'){
+    const p = a.pts; if(p.length){
+      ctx.lineWidth = a.sw; ctx.strokeStyle = a.stroke; ctx.lineCap = a.dash ? 'butt' : 'round';
+      ctx.setLineDash(a.dash ? [a.sw*2.6, a.sw*1.9] : []);
+      ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]);
+      for(let i = 1; i < p.length-1; i++){ const mx = (p[i][0]+p[i+1][0])/2, my = (p[i][1]+p[i+1][1])/2; ctx.quadraticCurveTo(p[i][0], p[i][1], mx, my); }
+      if(p.length > 1) ctx.lineTo(p[p.length-1][0], p[p.length-1][1]); else ctx.lineTo(p[0][0]+.1, p[0][1]);
+      ctx.stroke();
+    }
+  } else if(a.t === 'text' || a.t === 'callout'){
+    const b = labelBox(a);
+    if(a.t === 'callout'){
+      const e = edgePoint(b, a.ax, a.ay);
+      if(!e.inside) strokeLine(ctx, a, e.x, e.y, a.ax, a.ay, true);
+    }
+    ctx.setLineDash([]); ctx.fillStyle = '#fff'; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = '#111'; ctx.font = FONT(a.size); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    b.lines.forEach((l, i) => ctx.fillText(l, b.x+b.pad, b.y+b.pad*0.65+i*b.lh+(b.lh-a.size)/2));
+  }
+  ctx.restore();
+}
+function drawSymbol(ctx, p, x, y, w, h){
+  const sw = Math.max(2, h/9);
+  let a;
+  if(p.kind === 'arrow' || p.kind === 'line') a = {t:p.kind, x1:x+sw, y1:y+h/2, x2:x+w-sw, y2:y+h/2, stroke:p.stroke, dash:p.dash, sw};
+  else if(p.kind === 'rect') a = {t:'rect', x:x+sw*1.5, y:y+h*0.2, w:w-sw*3, h:h*0.6, stroke:p.stroke, fill:p.fill, dash:p.dash, sw:sw*0.8};
+  else if(p.kind === 'ellipse'){ const r = p.small ? h*0.22 : h*0.36; a = {t:'ellipse', x:x+w/2-(p.small?r:r*1.6), y:y+h/2-r, w:(p.small?r:r*1.6)*2, h:r*2, stroke:p.stroke, fill:p.fill, dash:p.dash, sw:sw*(p.small?0.6:0.8)}; }
+  else a = {t:'pen', pts:[[x+sw,y+h*.7],[x+w*.3,y+h*.25],[x+w*.55,y+h*.7],[x+w-sw,y+h*.3]], stroke:p.stroke, dash:p.dash, sw};
+  drawAnn(ctx, a);
+}
+
+/* ---------- page geometry & export ---------- */
+const PW = 1654, PH = 2339, PM = 84;
+function legendItems(pg){
+  const used = new Set();
+  pg.photos.forEach(id => { const r = photos.get(id); r && (r.anns||[]).forEach(a => a.preset && used.add(a.preset)); });
+  return S.presets.filter(p => SHAPES.includes(p.kind) && used.has(p.id));
+}
+function layoutCells(n, A, layout){
+  const g = 20, cells = [];
+  const grid = (n, R, cols) => {
+    const rows = Math.ceil(n/cols), cw = (R.w-g*(cols-1))/cols, ch = (R.h-g*(rows-1))/rows;
+    for(let i = 0; i < n; i++) cells.push({x:R.x+(i%cols)*(cw+g), y:R.y+Math.floor(i/cols)*(ch+g), w:cw, h:ch});
+  };
+  if(!n) return cells;
+  if(layout === 'hero' && n > 1){
+    const hh = n <= 3 ? A.h*0.56 : A.h*0.42;
+    cells.push({x:A.x, y:A.y, w:A.w, h:hh});
+    grid(n-1, {x:A.x, y:A.y+hh+g, w:A.w, h:A.h-hh-g}, n-1 === 1 ? 1 : 2);
+  } else grid(n, A, n <= 2 ? 1 : 2);
+  return cells;
+}
+function pageGeometry(pg){
+  const top = PM + 96, footH = 104;
+  let bottom = PH - PM - footH;
+  const items = S.project.legend ? legendItems(pg) : [];
+  let leg = null;
+  if(items.length){ const rows = Math.ceil(items.length/2), h = rows*64 + 30; bottom -= h; leg = {x:PM, y:bottom+24, w:PW-2*PM, h:h-24, items}; }
+  const cells = layoutCells(pg.photos.length, {x:PM, y:top, w:PW-2*PM, h:bottom-top}, pg.layout);
+  return {cells, leg};
+}
+async function fontsReady(){ try{ await document.fonts.load(FONT(20)); await document.fonts.ready; }catch(e){} }
+async function composite(rec, maxDim){
+  const img = await loadImg(rec), k = Math.min(1, maxDim/Math.max(rec.w, rec.h));
+  const c = mkCanvas(rec.w*k, rec.h*k), x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high'; x.scale(k, k); x.drawImage(img, 0, 0, rec.w, rec.h);
+  (rec.anns||[]).forEach(a => drawAnn(x, a));
+  return c;
+}
+function fitFont(x, text, maxW, size, min){ let s = size; x.font = FONT(s); while(s > min && x.measureText(text).width > maxW){ s -= 2; x.font = FONT(s); } return s; }
+async function renderPage(pi){
+  await fontsReady();
+  const pg = S.pages[pi], c = mkCanvas(PW, PH), x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, PW, PH);
+  x.fillStyle = '#111'; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  fitFont(x, pg.title || '', PW-2*PM, 54, 30); x.fillText(pg.title || '', PW/2, PM+52);
+  const {cells, leg} = pageGeometry(pg);
+  for(let i = 0; i < pg.photos.length; i++){
+    const rec = photos.get(pg.photos[i]); if(!rec) continue;
+    const cp = await composite(rec, 1500), cl = cells[i];
+    const k = Math.min(cl.w/cp.width, cl.h/cp.height), dw = cp.width*k, dh = cp.height*k;
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(cp, cl.x+(cl.w-dw)/2, cl.y+(cl.h-dh)/2, dw, dh);
+  }
+  if(leg){
+    const colW = (leg.w-40)/2;
+    leg.items.forEach((p, i) => {
+      const lx = leg.x + (i%2)*(colW+40), ly = leg.y + Math.floor(i/2)*64;
+      x.fillStyle = '#5b6166'; x.fillRect(lx, ly+6, 86, 44);
+      drawSymbol(x, p, lx+4, ly+8, 78, 40);
+      x.fillStyle = '#111'; x.textAlign = 'left'; x.textBaseline = 'top'; x.font = FONT(23);
+      const lines = wrap(x, p.label, colW-104).slice(0, 2);
+      lines.forEach((l, j) => x.fillText(l, lx+102, ly+(lines.length === 1 ? 16 : 2)+j*27));
+    });
+  }
+  if(S.project.logo){
+    try{ const li = await loadDataImg(S.project.logo); const k = Math.min(340/li.width, 86/li.height); x.drawImage(li, PM, PH-PM-li.height*k, li.width*k, li.height*k); }catch(e){}
+  }
+  x.fillStyle = '#666'; x.textAlign = 'right'; x.textBaseline = 'alphabetic'; x.font = FONT(26);
+  x.fillText(`${S.project.name ? S.project.name+'   ' : ''}Page ${pi+1} of ${S.pages.length}`, PW-PM, PH-PM-10);
+  return c;
+}
+const canvasBlob = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
+async function exportPDF(indexes){
+  if(!window.jspdf){ toast('The PDF library didn’t load. Check your connection and reload.'); return; }
+  const list = indexes.filter(i => S.pages[i] && S.pages[i].photos.length);
+  if(!list.length){ toast('Add a photo first. Empty pages aren’t exported.'); return; }
+  busy(true, 'Building PDF…');
+  try{
+    const doc = new window.jspdf.jsPDF({orientation:'p', unit:'mm', format:'a4', compress:true});
+    for(let n = 0; n < list.length; n++){
+      busy(true, `Building PDF, page ${n+1} of ${list.length}…`);
+      const c = await renderPage(list[n]);
+      if(n) doc.addPage();
+      doc.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 297);
+    }
+    const blob = doc.output('blob');
+    busy(false);
+    await saveFile(fileBase() + (list.length === 1 ? `-page-${list[0]+1}` : '') + '.pdf', blob);
+  }catch(e){ busy(false); toast('PDF export failed: ' + (e.message || e)); }
+}
+
+/* ---------- photos & pages ---------- */
+async function ingest(file){
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('This file isn’t an image the browser can open.')); i.src = url; });
+    const MAX = 2048; let w = img.naturalWidth, h = img.naturalHeight; const k = Math.min(1, MAX/Math.max(w, h));
+    w = Math.round(w*k); h = Math.round(h*k);
+    const c = mkCanvas(w, h); c.getContext('2d').drawImage(img, 0, 0, w, h);
+    const blob = await canvasBlob(c, 'image/jpeg', 0.88);
+    const t = mkCanvas(w*480/Math.max(w,h), h*480/Math.max(w,h)); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
+    const rec = {id:uid(), blob, w, h, anns:[], thumb:t.toDataURL('image/jpeg', 0.75)};
+    await store.put('photos', rec);
+    photos.set(rec.id, rec);
+    return rec;
+  } finally { URL.revokeObjectURL(url); }
+}
+function nextTitle(t){ const m = /^(\D*?)(\d+)/.exec(t || ''); return m ? t.replace(m[0], m[1] + (parseInt(m[2], 10)+1)) : (t || ''); }
+function placePhoto(id, pi){
+  let i = (pi != null && S.pages[pi] && S.pages[pi].photos.length < 6) ? pi : -1;
+  if(i < 0){ const last = S.pages.length-1; i = S.pages[last].photos.length < 6 ? last : -1; }
+  if(i < 0){ const prev = S.pages[S.pages.length-1]; const p = newPage(nextTitle(prev.title)); p.layout = prev.layout; S.pages.push(p); i = S.pages.length-1; }
+  S.pages[i].photos.push(id); saveMeta(); return i;
+}
+function locate(id){ for(let i = 0; i < S.pages.length; i++){ const j = S.pages[i].photos.indexOf(id); if(j >= 0) return {pi:i, j}; } return null; }
+function flatIds(){ return S.pages.flatMap(p => p.photos); }
+
+let pendingPage = null;
+$('#btnCamera').onclick = () => { pendingPage = null; $('#camIn').click(); };
+$('#btnGallery').onclick = () => { pendingPage = null; $('#galIn').click(); };
+$('#camIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  busy(true, 'Loading photo…');
+  try{ const rec = await ingest(f); placePhoto(rec.id, pendingPage); busy(false); renderHome(); openEditor(rec.id); }
+  catch(err){ busy(false); toast(err.message || 'Couldn’t load that photo.'); }
+};
+$('#galIn').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ''; if(!files.length) return;
+  let first = null;
+  for(let n = 0; n < files.length; n++){
+    busy(true, `Loading photo ${n+1} of ${files.length}…`);
+    try{ const rec = await ingest(files[n]); placePhoto(rec.id, pendingPage); first = first || rec.id; }catch(err){ toast(err.message); }
+  }
+  busy(false); renderHome();
+  if(files.length === 1 && first) openEditor(first);
+};
+
+/* ---------- home ---------- */
+$('#projName').oninput = e => { S.project.name = e.target.value; saveMeta(); };
+function renderHome(){
+  $('#projName').value = S.project.name;
+  const pct = (v, t) => (v/t*100).toFixed(3)+'%';
+  $('#pages').innerHTML = S.pages.map((pg, pi) => {
+    const {cells, leg} = pageGeometry(pg);
+    const cellHtml = pg.photos.map((id, j) => {
+      const r = photos.get(id), c = cells[j];
+      return `<button class="cell" data-photo="${id}" aria-label="Edit photo ${j+1}" style="left:${pct(c.x,PW)};top:${pct(c.y,PH)};width:${pct(c.w,PW)};height:${pct(c.h,PH)}">${r ? `<img src="${r.thumb}" alt="">` : ''}</button>`;
+    }).join('');
+    const legHtml = leg ? `<div class="legph" style="left:${pct(leg.x,PW)};top:${pct(leg.y,PH)};width:${pct(leg.w,PW)};height:${pct(leg.h,PH)}">${leg.items.map(() => '<i></i>').join('')}</div>` : '';
+    const n = pg.photos.length;
+    return `<section class="page" data-pi="${pi}">
+      <div class="sheet">
+        <input class="ttl" value="${esc(pg.title)}" aria-label="Page ${pi+1} title" placeholder="Page title">
+        ${n ? cellHtml : '<div class="empty">No photos yet</div>'}
+        ${legHtml}
+        ${S.project.logo ? `<img class="logo" src="${S.project.logo}" alt="">` : ''}
+        <div class="pnum">Page ${pi+1} of ${S.pages.length}</div>
+      </div>
+      <div class="pctl">
+        <div class="seg" role="group" aria-label="Layout"><button data-layout="grid" class="${pg.layout==='grid'?'on':''}">Grid</button><button data-layout="hero" class="${pg.layout==='hero'?'on':''}">Big first</button></div>
+        ${n < 6 ? `<button class="btn ghost small" data-add>${svg('plus')}Photo</button>` : ''}
+        ${n ? `<button class="btn ghost small" data-pv>Preview</button>` : (S.pages.length > 1 ? `<button class="btn small danger" data-rm>Remove page</button>` : '')}
+        <span class="count">${n} of 6</span>
+      </div>
+    </section>`;
+  }).join('');
+  $('#pages').querySelectorAll('.page').forEach(sec => {
+    const pi = +sec.dataset.pi, pg = S.pages[pi];
+    sec.querySelector('.ttl').oninput = e => { pg.title = e.target.value; saveMeta(); };
+    sec.querySelectorAll('[data-photo]').forEach(b => b.onclick = () => openEditor(b.dataset.photo));
+    sec.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => { pg.layout = b.dataset.layout; saveMeta(); renderHome(); });
+    const add = sec.querySelector('[data-add]'); if(add) add.onclick = () => { pendingPage = pi; $('#camIn').click(); };
+    const pv = sec.querySelector('[data-pv]'); if(pv) pv.onclick = () => openPreview(pi);
+    const rm = sec.querySelector('[data-rm]'); if(rm) rm.onclick = () => { S.pages.splice(pi, 1); saveMeta(); renderHome(); };
+  });
+}
+$('#btnExportAll').onclick = () => exportPDF(S.pages.map((_, i) => i));
+
+/* ---------- preview ---------- */
+async function openPreview(pi){
+  busy(true, 'Rendering page…');
+  let c; try{ c = await renderPage(pi); } catch(e){ busy(false); toast('Couldn’t render the page.'); return; }
+  busy(false);
+  const filled = S.pages.map((p, i) => p.photos.length ? i : -1).filter(i => i >= 0), k = filled.indexOf(pi);
+  openSheet('preview', `
+    <div class="phead"><h2>Page ${pi+1}</h2><button class="ib" data-close aria-label="Close">${svg('x')}</button></div>
+    <div class="pvwrap" id="pvw"></div>
+    <div class="pvnav"><button class="ib" data-prev ${k <= 0 ? 'disabled' : ''} aria-label="Previous page">${svg('left')}</button><span>${k+1} of ${filled.length}</span><button class="ib" data-next ${k >= filled.length-1 ? 'disabled' : ''} aria-label="Next page">${svg('right')}</button></div>
+    <div class="actions"><button class="btn ghost" data-png>${svg('dl')}Save as PNG</button><button class="btn primary" data-pdf>${svg('dl')}Save as PDF</button></div>`,
+    p => {
+      p.querySelector('#pvw').appendChild(c);
+      p.querySelector('[data-close]').onclick = () => closeSheet('preview');
+      p.querySelector('[data-prev]').onclick = () => openPreview(filled[k-1]);
+      p.querySelector('[data-next]').onclick = () => openPreview(filled[k+1]);
+      p.querySelector('[data-png]').onclick = async () => saveFile(`${fileBase()}-page-${pi+1}.png`, await canvasBlob(c, 'image/png'));
+      p.querySelector('[data-pdf]').onclick = () => exportPDF([pi]);
+    });
+}
+
+/* ---------- settings ---------- */
+function openSettings(){
+  openSheet('sheet', `
+    <div class="phead"><h2>Settings</h2><button class="ib" data-close aria-label="Close">${svg('x')}</button></div>
+    <div class="field"><div><b>Company logo</b><br><span style="color:var(--muted);font-size:14px">Printed bottom left on every page</span></div>
+      <div style="display:flex;gap:8px;align-items:center">${S.project.logo ? `<img src="${S.project.logo}" alt="Current logo"><button class="ib" data-rmlogo aria-label="Remove logo">${svg('x')}</button>` : ''}<button class="btn ghost small" data-logo>${S.project.logo ? 'Change' : 'Upload'}</button></div></div>
+    <div class="field"><div><b>Legend on pages</b><br><span style="color:var(--muted);font-size:14px">Lists the symbols used on that page</span></div><button class="switch ${S.project.legend ? 'on' : ''}" data-leg role="switch" aria-checked="${S.project.legend}" aria-label="Legend on pages"></button></div>
+    <div class="field"><div><b>Symbols and labels</b><br><span style="color:var(--muted);font-size:14px">${S.presets.length} saved</span></div><button class="btn ghost small" data-pre>Edit</button></div>
+    <div class="field"><div><b>New project</b><br><span style="color:var(--muted);font-size:14px">Deletes all photos and pages. Symbols and logo stay.</span></div><button class="btn small danger" data-reset>Start over</button></div>`,
+    p => {
+      p.querySelector('[data-close]').onclick = () => closeSheet('sheet');
+      p.querySelector('[data-logo]').onclick = () => $('#logoIn').click();
+      const rl = p.querySelector('[data-rmlogo]'); if(rl) rl.onclick = () => { S.project.logo = null; saveMeta(); renderHome(); openSettings(); };
+      p.querySelector('[data-leg]').onclick = () => { S.project.legend = !S.project.legend; saveMeta(); renderHome(); openSettings(); };
+      p.querySelector('[data-pre]').onclick = () => openPresets(true);
+      p.querySelector('[data-reset]').onclick = async () => {
+        if(!await askConfirm('Start a new project?', 'All photos and pages are deleted from this device. Export your PDF first if you need it.', 'Delete everything')) return;
+        for(const id of flatIds()) await store.del('photos', id);
+        photos.clear(); imgCache.clear();
+        S.pages = [newPage()]; S.project.name = ''; saveMeta(); renderHome(); closeSheet('sheet');
+      };
+    });
+}
+$('#btnSettings').onclick = openSettings;
+$('#logoIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  const u = URL.createObjectURL(f);
+  try{ const i = await loadDataImg(u); const k = Math.min(1, 700/Math.max(i.width, i.height)); const c = mkCanvas(i.width*k, i.height*k); c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); S.project.logo = c.toDataURL('image/png'); saveMeta(); renderHome(); openSettings(); }
+  catch(err){ toast('That logo file couldn’t be opened.'); }
+  finally{ URL.revokeObjectURL(u); }
+};
+
+/* ---------- editor ---------- */
+const cv = $('#cv'), ctx = cv.getContext('2d'), stage = $('#stage');
+const E = {rec:null, img:null, anns:[], sel:null, view:{s:1, ox:0, oy:0}, fitS:1, undo:[], redo:[], draft:null, mode:null, down:null, ptrs:new Map(), pinch:null, lastTap:null, dpr:1};
+const U = () => Math.max(E.rec.w, E.rec.h)/300;
+const selObj = () => E.anns.find(a => a.id === E.sel) || null;
+const isLabel = a => a && (a.t === 'text' || a.t === 'callout');
+
+async function openEditor(id){
+  const rec = photos.get(id); if(!rec) return;
+  E.rec = rec; E.anns = clone(rec.anns || []); E.sel = null; E.undo = []; E.redo = []; E.draft = null; E.mode = null;
+  try{ E.img = await loadImg(rec); }catch(e){ toast('This photo couldn’t be opened.'); return; }
+  const loc = locate(id);
+  $('#eTitle').textContent = loc ? `Page ${loc.pi+1}, photo ${loc.j+1}` : 'Photo';
+  $('#editor').classList.add('on');
+  await fontsReady();
+  sizeCanvas(); fit(); render(); updateUI();
+}
+function sizeCanvas(){
+  const r = stage.getBoundingClientRect(); E.dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width*E.dpr); cv.height = Math.round(r.height*E.dpr);
+}
+function fit(){
+  const r = stage.getBoundingClientRect(), s = Math.min(r.width/E.rec.w, r.height/E.rec.h)*0.98;
+  E.fitS = s; E.view = {s, ox:(r.width-E.rec.w*s)/2, oy:(r.height-E.rec.h*s)/2};
+}
+window.addEventListener('resize', () => { if(E.rec && $('#editor').classList.contains('on')){ sizeCanvas(); fit(); render(); } });
+
+function bbox(a){
+  if(a.t === 'rect' || a.t === 'ellipse') return norm(a);
+  if(a.t === 'line' || a.t === 'arrow') return {x:Math.min(a.x1,a.x2), y:Math.min(a.y1,a.y2), w:Math.abs(a.x2-a.x1), h:Math.abs(a.y2-a.y1)};
+  if(a.t === 'pen'){ const xs = a.pts.map(p => p[0]), ys = a.pts.map(p => p[1]); const x = Math.min(...xs), y = Math.min(...ys); return {x, y, w:Math.max(...xs)-x, h:Math.max(...ys)-y}; }
+  const b = labelBox(a);
+  if(a.t === 'callout'){ const x = Math.min(b.x, a.ax), y = Math.min(b.y, a.ay); return {x, y, w:Math.max(b.x+b.w, a.ax)-x, h:Math.max(b.y+b.h, a.ay)-y}; }
+  return b;
+}
+function handles(a){
+  if(a.t === 'rect' || a.t === 'ellipse'){ const r = norm(a); return [{x:r.x,y:r.y,k:'nw'},{x:r.x+r.w,y:r.y,k:'ne'},{x:r.x,y:r.y+r.h,k:'sw'},{x:r.x+r.w,y:r.y+r.h,k:'se'}]; }
+  if(a.t === 'line' || a.t === 'arrow') return [{x:a.x1,y:a.y1,k:'p1'},{x:a.x2,y:a.y2,k:'p2'}];
+  if(isLabel(a)){ const b = labelBox(a); const hs = [{x:b.x+b.w, y:b.y+b.h, k:'size'}]; if(a.t === 'callout') hs.push({x:a.ax, y:a.ay, k:'tip'}); return hs; }
+  return [];
+}
+function segDist(p, x1, y1, x2, y2){
+  const dx = x2-x1, dy = y2-y1, l = dx*dx+dy*dy;
+  const t = l ? clamp(((p.x-x1)*dx+(p.y-y1)*dy)/l, 0, 1) : 0;
+  return Math.hypot(p.x-(x1+t*dx), p.y-(y1+t*dy));
+}
+function hit(a, p, tol){
+  if(a.t === 'rect'){
+    const r = norm(a);
+    if(p.x < r.x-tol || p.x > r.x+r.w+tol || p.y < r.y-tol || p.y > r.y+r.h+tol) return false;
+    return !!a.fill || Math.min(r.w, r.h) < tol*3 || p.x <= r.x+tol || p.x >= r.x+r.w-tol || p.y <= r.y+tol || p.y >= r.y+r.h-tol;
+  }
+  if(a.t === 'ellipse'){
+    const r = norm(a), rx = Math.max(r.w/2, 1), ry = Math.max(r.h/2, 1), m = Math.min(rx, ry);
+    const d = Math.hypot((p.x-r.x-rx)/rx, (p.y-r.y-ry)/ry);
+    return (a.fill || m < tol*1.5) ? d <= 1 + tol/m : Math.abs(d-1)*m <= tol;
+  }
+  if(a.t === 'line' || a.t === 'arrow') return segDist(p, a.x1, a.y1, a.x2, a.y2) <= tol + a.sw/2;
+  if(a.t === 'pen'){ for(let i = 1; i < a.pts.length; i++) if(segDist(p, a.pts[i-1][0], a.pts[i-1][1], a.pts[i][0], a.pts[i][1]) <= tol + a.sw/2) return true; return a.pts.length === 1 && Math.hypot(p.x-a.pts[0][0], p.y-a.pts[0][1]) <= tol; }
+  const b = labelBox(a);
+  if(p.x >= b.x-tol && p.x <= b.x+b.w+tol && p.y >= b.y-tol && p.y <= b.y+b.h+tol) return true;
+  if(a.t === 'callout'){ const e = edgePoint(b, a.ax, a.ay); return segDist(p, e.x, e.y, a.ax, a.ay) <= tol + a.sw/2; }
+  return false;
+}
+function topHit(p, tol){ for(let i = E.anns.length-1; i >= 0; i--) if(hit(E.anns[i], p, tol)) return E.anns[i]; return null; }
+
+function render(){
+  if(!E.rec) return;
+  const {s, ox, oy} = E.view, d = E.dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(d*s, 0, 0, d*s, d*ox, d*oy);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(E.img, 0, 0, E.rec.w, E.rec.h);
+  E.anns.forEach(a => drawAnn(ctx, a));
+  if(E.draft) drawAnn(ctx, E.draft);
+  const o = selObj();
+  if(o){
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    const b = bbox(o), pad = 8;
+    ctx.save(); ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.95)';
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 3;
+    ctx.strokeRect(b.x*s+ox-pad, b.y*s+oy-pad, b.w*s+pad*2, b.h*s+pad*2); ctx.restore();
+    handles(o).forEach(h => {
+      ctx.beginPath(); ctx.arc(h.x*s+ox, h.y*s+oy, 10, 0, Math.PI*2);
+      ctx.fillStyle = h.k === 'size' ? '#FFD21F' : '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1A1D20'; ctx.stroke();
+    });
+  }
+}
+
+/* undo */
+function snap(){ E.undo.push(JSON.stringify(E.anns)); if(E.undo.length > 80) E.undo.shift(); E.redo = []; }
+function undo(){ if(!E.undo.length) return; E.redo.push(JSON.stringify(E.anns)); E.anns = JSON.parse(E.undo.pop()); if(!selObj()) E.sel = null; changed(); }
+function redo(){ if(!E.redo.length) return; E.undo.push(JSON.stringify(E.anns)); E.anns = JSON.parse(E.redo.pop()); if(!selObj()) E.sel = null; changed(); }
+let saveTimer = 0;
+function changed(){ render(); updateUI(); clearTimeout(saveTimer); saveTimer = setTimeout(saveEditor, 700); }
+async function saveEditor(){
+  clearTimeout(saveTimer);
+  if(!E.rec) return;
+  E.rec.anns = clone(E.anns);
+  try{ E.rec.thumb = (await composite(E.rec, 520)).toDataURL('image/jpeg', 0.75); }catch(e){}
+  try{ await store.put('photos', E.rec); }catch(e){ toast('Couldn’t save this photo. Storage may be full.'); }
+}
+
+/* object creation */
+function addRecent(t){ if(!t) return; S.recent = [t, ...S.recent.filter(x => x !== t)].slice(0, 12); saveMeta(); }
+function newObj(t, p){
+  const st = S.style, sw = U()*W_MULT[st.w], base = {id:uid(), preset:S.activePreset || null};
+  if(t === 'rect' || t === 'ellipse') return {...base, t, x:p.x, y:p.y, w:0, h:0, stroke:st.color, fill:st.fill, dash:st.dash, sw};
+  if(t === 'arrow' || t === 'line') return {...base, t, x1:p.x, y1:p.y, x2:p.x, y2:p.y, stroke:st.color, dash:st.dash, sw};
+  if(t === 'pen') return {...base, t, pts:[[p.x, p.y]], stroke:st.color, dash:st.dash, sw};
+  return {...base, preset:null, t, x:p.x, y:p.y, ax:p.x, ay:p.y, text:S.text || 'Label', size:U()*9*S.textMult, maxW:E.rec.w*0.5, stroke:st.color, dash:false, sw:U()*1.35};
+}
+function centerBoxAt(a, p){ const b = labelBox(a); a.x = clamp(p.x-b.w/2, 0, Math.max(0, E.rec.w-b.w)); a.y = clamp(p.y-b.h/2, 0, Math.max(0, E.rec.h-b.h)); }
+function translate(a, o, dx, dy){
+  ['x','y','x1','y1','x2','y2','ax','ay'].forEach((k, i) => { if(o[k] !== undefined) a[k] = o[k] + (i % 2 ? dy : dx); });
+  if(o.pts) a.pts = o.pts.map(q => [q[0]+dx, q[1]+dy]);
+}
+function applyHandle(a, o, k, p){
+  if(a.t === 'rect' || a.t === 'ellipse'){
+    const r = norm(o); let x1 = r.x, y1 = r.y, x2 = r.x+r.w, y2 = r.y+r.h;
+    if(k[1] === 'w') x1 = p.x; else x2 = p.x;
+    if(k[0] === 'n') y1 = p.y; else y2 = p.y;
+    a.x = x1; a.y = y1; a.w = x2-x1; a.h = y2-y1;
+  } else if(k === 'p1'){ a.x1 = p.x; a.y1 = p.y; }
+  else if(k === 'p2'){ a.x2 = p.x; a.y2 = p.y; }
+  else if(k === 'tip'){ a.ax = p.x; a.ay = p.y; }
+  else if(k === 'size'){
+    const b0 = labelBox(o), f = clamp(Math.max((p.x-b0.x)/b0.w, (p.y-b0.y)/b0.h), 0.25, 6);
+    a.size = o.size*f; a.maxW = o.maxW*f;
+  }
+}
+function finalize(a){ if(a.t === 'rect' || a.t === 'ellipse'){ const r = norm(a); a.x = r.x; a.y = r.y; a.w = r.w; a.h = r.h; } }
+
+/* pointer handling */
+const cpt = e => { const r = cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+const toImg = sp => ({x:(sp.x-E.view.ox)/E.view.s, y:(sp.y-E.view.oy)/E.view.s});
+stage.addEventListener('pointerdown', e => {
+  if(e.target.closest('#hint')) return;
+  e.preventDefault(); try{ stage.setPointerCapture(e.pointerId); }catch(_){}
+  E.ptrs.set(e.pointerId, cpt(e));
+  if(E.ptrs.size === 2){ startPinch(); return; }
+  if(E.ptrs.size > 2 || E.mode === 'idle') return;
+  startSingle(cpt(e));
+});
+stage.addEventListener('pointermove', e => {
+  if(!E.ptrs.has(e.pointerId)) return;
+  E.ptrs.set(e.pointerId, cpt(e));
+  if(E.mode === 'pinch' && E.ptrs.size >= 2) movePinch();
+  else if(E.down) moveSingle(cpt(e));
+});
+const up = e => {
+  if(!E.ptrs.has(e.pointerId)) return;
+  E.ptrs.delete(e.pointerId);
+  if(E.mode === 'pinch' || E.mode === 'idle'){ E.mode = E.ptrs.size ? 'idle' : null; return; }
+  if(E.down) endSingle();
+};
+stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+stage.addEventListener('wheel', e => {
+  e.preventDefault(); const sp = cpt(e), v = E.view;
+  const s = clamp(v.s * Math.exp(-e.deltaY*0.0015), E.fitS*0.5, E.fitS*10);
+  v.ox = sp.x - (sp.x-v.ox)*(s/v.s); v.oy = sp.y - (sp.y-v.oy)*(s/v.s); v.s = s; render();
+}, {passive:false});
+
+function startPinch(){
+  const [a, b] = [...E.ptrs.values()];
+  if(E.mode === 'draw') E.draft = null;
+  if((E.mode === 'move' || E.mode === 'handle') && E.down && !E.down.moved && E.mode === 'handle') E.undo.pop();
+  E.down = null; E.mode = 'pinch';
+  E.pinch = {d:Math.hypot(a.x-b.x, a.y-b.y) || 1, m:{x:(a.x+b.x)/2, y:(a.y+b.y)/2}, ...E.view};
+  render();
+}
+function movePinch(){
+  const [a, b] = [...E.ptrs.values()], P = E.pinch;
+  const s = clamp(P.s*(Math.hypot(a.x-b.x, a.y-b.y)/P.d), E.fitS*0.5, E.fitS*10), m = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+  E.view = {s, ox:m.x-(P.m.x-P.ox)*(s/P.s), oy:m.y-(P.m.y-P.oy)*(s/P.s)};
+  render();
+}
+function startSingle(sp){
+  const p = toImg(sp), tol = 14/E.view.s, sel = selObj();
+  E.down = {sp, p, moved:false};
+  if(sel){
+    for(const h of handles(sel)){
+      if(Math.hypot(p.x-h.x, p.y-h.y) <= 24/E.view.s){ snap(); E.mode = 'handle'; E.hk = h.k; E.orig = clone(sel); return; }
+    }
+  }
+  if(S.tool === 'select'){
+    const o = topHit(p, tol);
+    if(o){ E.sel = o.id; E.mode = 'move'; E.orig = clone(o); render(); updateUI(); return; }
+    E.sel = null; E.mode = 'pan'; E.panO = {ox:E.view.ox, oy:E.view.oy}; render(); updateUI(); return;
+  }
+  if(sel && hit(sel, p, tol)){ E.mode = 'move'; E.orig = clone(sel); return; }
+  if(S.tool === 'text'){ E.mode = 'place'; return; }
+  E.draft = newObj(S.tool, p); E.mode = 'draw';
+  if(S.tool === 'callout') centerBoxAt(E.draft, p);
+}
+function moveSingle(sp){
+  const d = E.down, p = toImg(sp);
+  if(!d.moved && Math.hypot(sp.x-d.sp.x, sp.y-d.sp.y) > 6){
+    d.moved = true;
+    if(E.mode === 'move') snap();
+    if(E.mode === 'draw' && E.sel){ E.sel = null; updateUI(); }
+  }
+  if(!d.moved) return;
+  if(E.mode === 'pan'){ E.view.ox = E.panO.ox + sp.x-d.sp.x; E.view.oy = E.panO.oy + sp.y-d.sp.y; }
+  else if(E.mode === 'move'){ const o = selObj(); if(o) translate(o, E.orig, p.x-d.p.x, p.y-d.p.y); }
+  else if(E.mode === 'handle'){ const o = selObj(); if(o) applyHandle(o, E.orig, E.hk, p); }
+  else if(E.mode === 'draw'){
+    const a = E.draft;
+    if(a.t === 'rect' || a.t === 'ellipse'){ a.w = p.x-a.x; a.h = p.y-a.y; }
+    else if(a.t === 'arrow' || a.t === 'line'){ a.x2 = p.x; a.y2 = p.y; }
+    else if(a.t === 'pen'){ const l = a.pts[a.pts.length-1]; if(Math.hypot(p.x-l[0], p.y-l[1]) > 3/E.view.s) a.pts.push([p.x, p.y]); }
+    else if(a.t === 'callout') centerBoxAt(a, p);
+  }
+  render();
+}
+function tapObj(o){
+  const now = performance.now();
+  if(isLabel(o) && E.lastTap && E.lastTap.id === o.id && now-E.lastTap.t < 420){ E.lastTap = null; editLabel(o); return; }
+  E.lastTap = {id:o.id, t:now};
+}
+async function editLabel(o){
+  const t = await askText('Edit label', o.text, 'Save'); if(!t) return;
+  snap(); o.text = t; S.text = t; addRecent(t); changed();
+}
+async function endSingle(){
+  const d = E.down, mode = E.mode; E.down = null; E.mode = null;
+  const tol = 14/E.view.s;
+  if(mode === 'handle'){ if(!d.moved) E.undo.pop(); else finalize(selObj()); changed(); return; }
+  if(mode === 'move'){ if(!d.moved){ const o = selObj(); if(o) tapObj(o); render(); updateUI(); return; } changed(); return; }
+  if(mode === 'pan'){ render(); return; }
+  if(mode === 'place'){
+    const o = topHit(d.p, tol);
+    if(o){ E.sel = o.id; tapObj(o); render(); updateUI(); return; }
+    let t = S.text;
+    if(!t.trim()){ t = await askText('Text', '', 'Place'); if(!t) return; }
+    S.text = t; $('#txt').value = t; addRecent(t);
+    const a = newObj('text', d.p); a.text = t; centerBoxAt(a, d.p);
+    snap(); E.anns.push(a); E.sel = a.id; changed(); return;
+  }
+  if(mode === 'draw'){
+    const a = E.draft; E.draft = null;
+    if(!d.moved){
+      const o = topHit(d.p, tol);
+      if(o){ E.sel = o.id; tapObj(o); render(); updateUI(); return; }
+      if(a.t === 'rect' || a.t === 'ellipse'){
+        const pr = S.presets.find(x => x.id === a.preset), r = U()*(pr && pr.small ? 3.2 : 14);
+        a.w = r*2; a.h = a.t === 'rect' ? r*1.4 : r*2; a.x = d.p.x-a.w/2; a.y = d.p.y-a.h/2;
+      } else if(a.t === 'callout'){
+        centerBoxAt(a, {x:d.p.x + U()*30, y:d.p.y - U()*24});
+      } else { render(); return; }
+    } else {
+      if((a.t === 'arrow' || a.t === 'line') && Math.hypot(a.x2-a.x1, a.y2-a.y1) < 10/E.view.s){ render(); return; }
+      if((a.t === 'rect' || a.t === 'ellipse') && (Math.abs(a.w) < 6/E.view.s || Math.abs(a.h) < 6/E.view.s)){ render(); return; }
+    }
+    if(a.t === 'callout'){
+      if(!S.text.trim()){
+        render(); const t = await askText('Label text', '', 'Place'); if(!t) return;
+        S.text = t; $('#txt').value = t;
+      }
+      a.text = S.text; addRecent(a.text);
+      if(!d.moved) centerBoxAt(a, {x:a.ax + U()*30 + labelBox(a).w/2, y:a.ay - U()*24});
+    }
+    finalize(a); snap(); E.anns.push(a); E.sel = a.id; changed();
+  }
+}
+
+/* toolbar */
+const TOOLS = [['select','Move'],['arrow','Arrow'],['line','Line'],['pen','Draw'],['rect','Box'],['ellipse','Circle'],['callout','Label'],['text','Text'],['legend','Legend']];
+$('#tools').innerHTML = TOOLS.map(([k, l]) => `<button class="tool" data-tool="${k}">${svg(k)}<span>${l}</span></button>`).join('');
+$('#tools').onclick = e => {
+  const b = e.target.closest('[data-tool]'); if(!b) return;
+  const k = b.dataset.tool;
+  if(k === 'legend'){ openPresets(false); return; }
+  S.tool = k; S.activePreset = null; saveMeta(); updateUI();
+};
+function currentStyle(){
+  const o = selObj();
+  if(o && !isLabel(o)) return {color:o.stroke, fill:o.fill || null, dash:!!o.dash, sw:o.sw};
+  if(o && o.t === 'callout') return {color:o.stroke, fill:null, dash:!!o.dash};
+  return {color:S.style.color, fill:S.style.fill, dash:S.style.dash};
+}
+function setStyle(k, v){
+  S.style[k] = v; S.activePreset = null;
+  const o = selObj();
+  if(o && !(o.t === 'text' && k !== 'w')){
+    snap();
+    if(k === 'color') o.stroke = v;
+    if(k === 'fill' && (o.t === 'rect' || o.t === 'ellipse')) o.fill = v;
+    if(k === 'dash' && o.t !== 'text') o.dash = v;
+    if(k === 'w' && !isLabel(o)) o.sw = U()*W_MULT[v];
+    o.preset = null; changed();
+  }
+  saveMeta(); updateUI();
+}
+$('#targetSeg').onclick = e => { const b = e.target.closest('[data-t]'); if(!b) return; S.style.target = b.dataset.t; saveMeta(); updateUI(); };
+$('#swatches').onclick = e => {
+  const b = e.target.closest('[data-c]'); if(!b) return;
+  const c = b.dataset.c === 'none' ? null : b.dataset.c;
+  if(S.style.target === 'fill') setStyle('fill', c); else if(c) setStyle('color', c);
+};
+$('#dashBtn').onclick = () => setStyle('dash', !currentStyle().dash);
+$('#widthSeg').onclick = e => { const b = e.target.closest('[data-w]'); if(b) setStyle('w', b.dataset.w); };
+const txt = $('#txt');
+txt.addEventListener('focus', () => { const o = selObj(); E.txtSnap = isLabel(o); if(E.txtSnap) snap(); });
+txt.addEventListener('input', () => {
+  S.text = txt.value; saveMeta();
+  const o = selObj(); if(isLabel(o) && txt.value.trim()){ o.text = txt.value; render(); clearTimeout(saveTimer); saveTimer = setTimeout(saveEditor, 700); }
+});
+txt.addEventListener('change', () => { if(txt.value.trim()) addRecent(txt.value.trim()); renderChips(); });
+txt.addEventListener('keydown', e => { if(e.key === 'Enter') txt.blur(); });
+function textSize(f){
+  S.textMult = clamp(S.textMult*f, 0.35, 4); saveMeta();
+  const o = selObj(); if(isLabel(o)){ snap(); o.size *= f; o.maxW *= f; changed(); }
+}
+$('#tMinus').onclick = () => textSize(1/1.15);
+$('#tPlus').onclick = () => textSize(1.15);
+function renderChips(){
+  const list = S.recent.length ? S.recent : S.presets.filter(p => p.kind === 'callout').map(p => p.label);
+  $('#chips').innerHTML = list.map(t => `<button class="chip ${t === S.text ? 'on' : ''}" title="${esc(t)}">${esc(t)}</button>`).join('');
+  [...$('#chips').children].forEach((b, i) => b.onclick = () => {
+    S.text = list[i]; txt.value = S.text; saveMeta();
+    const o = selObj(); if(isLabel(o)){ snap(); o.text = S.text; changed(); }
+    if(!isLabel(o) && S.tool !== 'text' && S.tool !== 'callout'){ S.tool = 'callout'; S.activePreset = null; }
+    addRecent(S.text); updateUI();
+  });
+}
+function updateUI(){
+  const o = selObj(), st = currentStyle();
+  document.querySelectorAll('.tool').forEach(b => b.classList.toggle('on', b.dataset.tool === S.tool));
+  const textMode = isLabel(o) || S.tool === 'text' || S.tool === 'callout';
+  $('#textRow').hidden = !textMode; $('#chips').hidden = !textMode;
+  if(textMode){ if(document.activeElement !== txt) txt.value = isLabel(o) ? o.text : S.text; renderChips(); }
+  document.querySelectorAll('#targetSeg button').forEach(b => b.classList.toggle('on', b.dataset.t === S.style.target));
+  const tgt = S.style.target, cur = tgt === 'fill' ? st.fill : st.color;
+  $('#swatches').innerHTML = (tgt === 'fill' ? ['none', ...COLORS] : COLORS).map(c =>
+    `<button class="swatch ${c === 'none' ? 'none' : ''} ${(c === 'none' ? cur == null : (cur || '').toUpperCase() === c) ? 'on' : ''}" data-c="${c}" ${c !== 'none' ? `style="background:${c}"` : ''} aria-label="${c === 'none' ? 'No fill' : c}"></button>`).join('');
+  $('#dashBtn').classList.toggle('on', !!st.dash);
+  let w = S.style.w;
+  if(o && !isLabel(o)){ const m = o.sw/U(); w = Object.keys(W_MULT).reduce((b, k) => Math.abs(W_MULT[k]-m) < Math.abs(W_MULT[b]-m) ? k : b, 'M'); }
+  document.querySelectorAll('#widthSeg button').forEach(b => b.classList.toggle('on', b.dataset.w === w));
+  $('#eUndo').disabled = !E.undo.length; $('#eRedo').disabled = !E.redo.length; $('#eDel').disabled = !o;
+  const pr = S.presets.find(p => p.id === S.activePreset);
+  const hints = {select:'Tap to select. Drag empty space to pan, pinch to zoom.', callout:'Drag from the spot to where the label should sit.', text:'Tap to place the text.', pen:'Draw a cable route with your finger.'};
+  const h = pr ? 'Symbol: ' + pr.label : (o ? (isLabel(o) ? 'Double-tap the label to edit. Yellow dot resizes.' : 'Drag to move, white dots to resize.') : (hints[S.tool] || ''));
+  $('#hint').hidden = !h; $('#hintTxt').textContent = h; $('#hintX').hidden = !pr;
+}
+$('#hintX').onclick = () => { S.activePreset = null; saveMeta(); updateUI(); };
+$('#eUndo').onclick = undo; $('#eRedo').onclick = redo;
+$('#eDel').onclick = () => { const o = selObj(); if(!o) return; snap(); E.anns = E.anns.filter(a => a !== o); E.sel = null; changed(); };
+document.addEventListener('keydown', e => {
+  if(!$('#editor').classList.contains('on') || /INPUT|TEXTAREA/.test(document.activeElement.tagName) || $('#dlg').classList.contains('on')) return;
+  if((e.key === 'Delete' || e.key === 'Backspace') && selObj()){ e.preventDefault(); $('#eDel').click(); }
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
+});
+async function closeEditor(){ await saveEditor(); $('#editor').classList.remove('on'); E.rec = null; renderHome(); }
+$('#eDone').onclick = closeEditor;
+$('#eNext').onclick = async () => { const loc = locate(E.rec.id); await closeEditor(); pendingPage = loc ? loc.pi : null; $('#camIn').click(); };
+$('#eMore').onclick = () => {
+  const ids = flatIds(), idx = ids.indexOf(E.rec.id), prev = idx > 0 ? photos.get(ids[idx-1]) : null;
+  openSheet('sheet', `
+    <div class="phead"><h2>This photo</h2><button class="ib" data-close aria-label="Close">${svg('x')}</button></div>
+    <div class="plist">
+      <button class="prow" data-copy ${prev ? '' : 'disabled style="opacity:.4"'}>${svg('copy')}<span class="lbl">Copy annotations from the previous photo</span></button>
+      <button class="prow" data-fit>${svg('select')}<span class="lbl">Fit photo to screen</span></button>
+      <button class="prow" data-del style="color:var(--red)">${svg('trash')}<span class="lbl">Delete this photo</span></button>
+    </div>`, p => {
+      p.querySelector('[data-close]').onclick = () => closeSheet('sheet');
+      p.querySelector('[data-fit]').onclick = () => { fit(); render(); closeSheet('sheet'); };
+      p.querySelector('[data-copy]').onclick = () => {
+        if(!prev) return;
+        const fx = E.rec.w/prev.w, fy = E.rec.h/prev.h, fu = Math.max(E.rec.w, E.rec.h)/Math.max(prev.w, prev.h);
+        const copies = clone(prev.anns || []).map(a => {
+          a.id = uid();
+          ['x','x1','x2','ax'].forEach(k => { if(a[k] !== undefined) a[k] *= fx; });
+          ['y','y1','y2','ay'].forEach(k => { if(a[k] !== undefined) a[k] *= fy; });
+          if(a.w !== undefined) a.w *= fx; if(a.h !== undefined) a.h *= fy;
+          if(a.pts) a.pts = a.pts.map(q => [q[0]*fx, q[1]*fy]);
+          a.sw *= fu; if(a.size){ a.size *= fu; a.maxW *= fu; }
+          return a;
+        });
+        snap(); E.anns.push(...copies); changed(); closeSheet('sheet'); toast(`Copied ${copies.length} annotation${copies.length === 1 ? '' : 's'}`);
+      };
+      p.querySelector('[data-del]').onclick = async () => {
+        closeSheet('sheet');
+        if(!await askConfirm('Delete this photo?', 'The photo and its annotations are removed from the page.', 'Delete')) return;
+        const id = E.rec.id, loc = locate(id);
+        if(loc) S.pages[loc.pi].photos.splice(loc.j, 1);
+        photos.delete(id); imgCache.delete(id); await store.del('photos', id).catch(()=>{});
+        saveMeta(); E.rec = null; $('#editor').classList.remove('on'); renderHome();
+      };
+    });
+};
+
+/* presets */
+function applyPreset(p){
+  const o = selObj();
+  if(p.kind === 'callout' || p.kind === 'text'){
+    S.tool = p.kind; S.text = p.label; S.activePreset = null;
+    if(p.stroke) S.style.color = p.stroke;
+    if(isLabel(o)){ snap(); o.text = p.label; changed(); }
+    addRecent(p.label);
+  } else {
+    S.tool = p.kind; S.style.color = p.stroke; S.style.fill = p.fill || null; S.style.dash = !!p.dash; S.activePreset = p.id;
+    if(o && o.t === p.kind){ snap(); o.stroke = p.stroke; o.fill = p.fill || null; o.dash = !!p.dash; o.preset = p.id; changed(); }
+    else E.sel = null;
+  }
+  saveMeta(); render(); updateUI();
+}
+function openPresets(manage){
+  let edit = !!manage;
+  const draw = () => openSheet('sheet', `
+    <div class="phead"><h2>Legend</h2><button class="btn ghost small" data-edit>${edit ? 'Done editing' : 'Edit'}</button><button class="ib" data-close aria-label="Close">${svg('x')}</button></div>
+    <p>${edit ? 'Tap a row to rename it. Remove what you don’t use.' : 'Pick a symbol, then draw it. Symbols you use appear in the page legend.'}</p>
+    <h3>Symbols</h3>
+    <div class="plist">${S.presets.filter(p => SHAPES.includes(p.kind)).map(p => `<div class="prow" role="button" tabindex="0" data-id="${p.id}"><canvas width="128" height="68"></canvas><span class="lbl">${esc(p.label)}</span>${edit ? `<button class="x" data-rm="${p.id}" aria-label="Remove">${svg('trash')}</button>` : ''}</div>`).join('')}</div>
+    <h3>Labels</h3>
+    <div class="plist">${S.presets.filter(p => p.kind === 'callout').map(p => `<div class="prow" role="button" tabindex="0" data-id="${p.id}"><span class="tag">Label</span><span class="lbl">${esc(p.label)}</span>${edit ? `<button class="x" data-rm="${p.id}" aria-label="Remove">${svg('trash')}</button>` : ''}</div>`).join('')}</div>
+    <div class="actions"><button class="btn ghost" data-newsym>${svg('plus')}Symbol from current style</button><button class="btn ghost" data-newlbl>${svg('plus')}New label</button></div>`,
+    pn => {
+      pn.querySelectorAll('.prow canvas').forEach(c => { const p = S.presets.find(x => x.id === c.parentElement.dataset.id); drawSymbol(c.getContext('2d'), p, 6, 4, 116, 60); });
+      pn.querySelector('[data-close]').onclick = () => closeSheet('sheet');
+      pn.querySelector('[data-edit]').onclick = () => { edit = !edit; draw(); };
+      pn.querySelectorAll('[data-rm]').forEach(b => b.onclick = e => { e.stopPropagation(); S.presets = S.presets.filter(p => p.id !== b.dataset.rm); if(S.activePreset === b.dataset.rm) S.activePreset = null; saveMeta(); draw(); });
+      pn.querySelectorAll('.prow[data-id]').forEach(r => {
+        const act = async () => {
+          const p = S.presets.find(x => x.id === r.dataset.id); if(!p) return;
+          if(edit){ const t = await askText('Rename', p.label, 'Save'); if(t){ p.label = t; saveMeta(); } draw(); return; }
+          closeSheet('sheet'); if(E.rec) applyPreset(p);
+        };
+        r.onclick = act; r.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); act(); } };
+      });
+      pn.querySelector('[data-newsym]').onclick = async () => {
+        const o = selObj(), src = o && SHAPES.includes(o.t) ? o : null;
+        const kind = src ? src.t : (SHAPES.includes(S.tool) ? S.tool : 'arrow');
+        const t = await askText('Legend text for this symbol', '', 'Save'); if(!t){ draw(); return; }
+        const p = {id:uid(), kind, label:t, stroke:src ? src.stroke : S.style.color, fill:src ? (src.fill || null) : S.style.fill, dash:src ? !!src.dash : S.style.dash};
+        S.presets.splice(S.presets.findIndex(x => x.kind === 'callout') < 0 ? S.presets.length : S.presets.findIndex(x => x.kind === 'callout'), 0, p);
+        if(src){ snap(); src.preset = p.id; changed(); }
+        saveMeta(); draw();
+      };
+      pn.querySelector('[data-newlbl]').onclick = async () => {
+        const t = await askText('New label', '', 'Save'); if(t){ S.presets.push({id:uid(), kind:'callout', stroke:'#E3201B', label:t}); saveMeta(); }
+        draw();
+      };
+    });
+  draw();
+}
+
+/* ---------- boot ---------- */
+(async () => {
+  await store.init();
+  try{
+    const m = await store.get('meta', 'state');
+    if(m){ const d = defaultState(); S = {...d, ...m, project:{...d.project, ...(m.project||{})}, style:{...d.style, ...(m.style||{})}}; if(!S.pages || !S.pages.length) S.pages = [newPage()]; }
+  }catch(e){}
+  for(const pg of S.pages){
+    const keep = [];
+    for(const id of pg.photos){ try{ const r = await store.get('photos', id); if(r){ photos.set(id, r); keep.push(id); } }catch(e){} }
+    pg.photos = keep;
+  }
+  renderHome();
+  if(!store.db) toast('Storage is unavailable here, so photos last only until you close this page.');
+})();
+})();
+</script>
+</body>
+</html>
