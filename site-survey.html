@@ -266,7 +266,7 @@ const DEFAULT_PRESETS = [
   {id:'l6', kind:'callout', stroke:'#E3201B', label:'Te koppelen nieuwe 1xDB7 met bestaande 1xDB7'},
   {id:'l7', kind:'callout', stroke:'#E3201B', label:'Doorsteek – PVC125mm – inhoud 1xDB7'},
 ];
-const newPage = (title='Locatie 1: ') => ({id:uid(), title, layout:'grid', photos:[]});
+const newPage = (title='Locatie 1: ') => ({id:uid(), title, layout:'grid', fit:'fill', photos:[]});
 const defaultState = () => ({
   project:{name:'', logo:null, legend:true},
   pages:[newPage()],
@@ -487,10 +487,15 @@ async function renderPage(pi){
   const {cells, leg} = pageGeometry(pg);
   for(let i = 0; i < pg.photos.length; i++){
     const rec = photos.get(pg.photos[i]); if(!rec) continue;
-    const cp = await composite(rec, 1500), cl = cells[i];
-    const k = Math.min(cl.w/cp.width, cl.h/cp.height), dw = cp.width*k, dh = cp.height*k;
+    const cp = await composite(rec, 1800), cl = cells[i];
     x.imageSmoothingQuality = 'high';
-    x.drawImage(cp, cl.x+(cl.w-dw)/2, cl.y+(cl.h-dh)/2, dw, dh);
+    if(pg.fit === 'fill'){
+      const r = cropRect(rec, cl), f = cp.width/rec.w;
+      x.drawImage(cp, r.x*f, r.y*f, r.w*f, r.h*f, cl.x, cl.y, cl.w, cl.h);
+    } else {
+      const k = Math.min(cl.w/cp.width, cl.h/cp.height), dw = cp.width*k, dh = cp.height*k;
+      x.drawImage(cp, cl.x+(cl.w-dw)/2, cl.y+(cl.h-dh)/2, dw, dh);
+    }
   }
   if(leg){
     const colW = (leg.w-40)/2;
@@ -509,6 +514,18 @@ async function renderPage(pi){
   x.fillStyle = '#666'; x.textAlign = 'right'; x.textBaseline = 'alphabetic'; x.font = FONT(26);
   x.fillText(`${S.project.name ? S.project.name+'   ' : ''}Page ${pi+1} of ${S.pages.length}`, PW-PM, PH-PM-10);
   return c;
+}
+function cropRect(rec, cell){
+  const a = cell.w/cell.h; let w = rec.w, h = rec.h;
+  if(rec.w/rec.h > a) w = rec.h*a; else h = rec.w/a;
+  let cx = rec.w/2, cy = rec.h/2;
+  const anns = rec.anns || [];
+  if(anns.length){
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    anns.forEach(an => { const b = bbox(an); x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y); x2 = Math.max(x2, b.x+b.w); y2 = Math.max(y2, b.y+b.h); });
+    cx = (x1+x2)/2; cy = (y1+y2)/2;
+  }
+  return {x:clamp(cx-w/2, 0, rec.w-w), y:clamp(cy-h/2, 0, rec.h-h), w, h};
 }
 const canvasBlob = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
 async function exportPDF(indexes){
@@ -550,7 +567,7 @@ function nextTitle(t){ const m = /^(\D*?)(\d+)/.exec(t || ''); return m ? t.repl
 function placePhoto(id, pi){
   let i = (pi != null && S.pages[pi] && S.pages[pi].photos.length < 6) ? pi : -1;
   if(i < 0){ const last = S.pages.length-1; i = S.pages[last].photos.length < 6 ? last : -1; }
-  if(i < 0){ const prev = S.pages[S.pages.length-1]; const p = newPage(nextTitle(prev.title)); p.layout = prev.layout; S.pages.push(p); i = S.pages.length-1; }
+  if(i < 0){ const prev = S.pages[S.pages.length-1]; const p = newPage(nextTitle(prev.title)); p.layout = prev.layout; p.fit = prev.fit; S.pages.push(p); i = S.pages.length-1; }
   S.pages[i].photos.push(id); saveMeta(); return i;
 }
 function locate(id){ for(let i = 0; i < S.pages.length; i++){ const j = S.pages[i].photos.indexOf(id); if(j >= 0) return {pi:i, j}; } return null; }
@@ -585,7 +602,9 @@ function renderHome(){
     const {cells, leg} = pageGeometry(pg);
     const cellHtml = pg.photos.map((id, j) => {
       const r = photos.get(id), c = cells[j];
-      return `<button class="cell" data-photo="${id}" aria-label="Edit photo ${j+1}" style="left:${pct(c.x,PW)};top:${pct(c.y,PH)};width:${pct(c.w,PW)};height:${pct(c.h,PH)}">${r ? `<img src="${r.thumb}" alt="">` : ''}</button>`;
+      let st = '';
+      if(r && pg.fit === 'fill'){ const k = cropRect(r, c); st = ` style="object-fit:cover;object-position:${r.w > k.w+0.5 ? (k.x/(r.w-k.w)*100).toFixed(1) : 50}% ${r.h > k.h+0.5 ? (k.y/(r.h-k.h)*100).toFixed(1) : 50}%"`; }
+      return `<button class="cell" data-photo="${id}" aria-label="Edit photo ${j+1}" style="left:${pct(c.x,PW)};top:${pct(c.y,PH)};width:${pct(c.w,PW)};height:${pct(c.h,PH)}">${r ? `<img src="${r.thumb}" alt=""${st}>` : ''}</button>`;
     }).join('');
     const legHtml = leg ? `<div class="legph" style="left:${pct(leg.x,PW)};top:${pct(leg.y,PH)};width:${pct(leg.w,PW)};height:${pct(leg.h,PH)}">${leg.items.map(() => '<i></i>').join('')}</div>` : '';
     const n = pg.photos.length;
@@ -599,6 +618,7 @@ function renderHome(){
       </div>
       <div class="pctl">
         <div class="seg" role="group" aria-label="Layout"><button data-layout="grid" class="${pg.layout==='grid'?'on':''}">Grid</button><button data-layout="hero" class="${pg.layout==='hero'?'on':''}">Big first</button></div>
+        <div class="seg" role="group" aria-label="Photo size"><button data-fit="fit" class="${pg.fit!=='fill'?'on':''}">Fit</button><button data-fit="fill" class="${pg.fit==='fill'?'on':''}">Fill</button></div>
         ${n < 6 ? `<button class="btn ghost small" data-add>${svg('plus')}Photo</button>` : ''}
         ${n ? `<button class="btn ghost small" data-pv>Preview</button>` : (S.pages.length > 1 ? `<button class="btn small danger" data-rm>Remove page</button>` : '')}
         <span class="count">${n} of 6</span>
@@ -610,6 +630,7 @@ function renderHome(){
     sec.querySelector('.ttl').oninput = e => { pg.title = e.target.value; saveMeta(); };
     sec.querySelectorAll('[data-photo]').forEach(b => b.onclick = () => openEditor(b.dataset.photo));
     sec.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => { pg.layout = b.dataset.layout; saveMeta(); renderHome(); });
+    sec.querySelectorAll('[data-fit]').forEach(b => b.onclick = () => { pg.fit = b.dataset.fit; saveMeta(); renderHome(); });
     const add = sec.querySelector('[data-add]'); if(add) add.onclick = () => { pendingPage = pi; $('#camIn').click(); };
     const pv = sec.querySelector('[data-pv]'); if(pv) pv.onclick = () => openPreview(pi);
     const rm = sec.querySelector('[data-rm]'); if(rm) rm.onclick = () => { S.pages.splice(pi, 1); saveMeta(); renderHome(); };
