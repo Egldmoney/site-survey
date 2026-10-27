@@ -90,6 +90,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 #hint span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #hint button{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.15);flex:none}
 #hint button svg{width:16px;height:16px}
+#hint .hsign{width:auto;height:28px;border-radius:999px;padding:0 12px;background:var(--yellow);color:#1A1D20;font-weight:700}
 .ebottom{background:var(--panel);border-top:1px solid var(--line)}
 .row{display:flex;align-items:center;gap:8px;padding:6px 8px;overflow-x:auto;scrollbar-width:none}
 .row::-webkit-scrollbar{display:none}
@@ -161,7 +162,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
     <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
   </header>
-  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page.</p>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.5</span></p>
   <main id="pages"></main>
   <div class="dock">
     <button id="btnGallery" class="btn ghost" aria-label="Add from gallery"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></button>
@@ -180,7 +181,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <button id="eMore" class="ib" aria-label="More"><svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
     <button id="eNext" class="tb primary"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Next</button>
   </div>
-  <div id="stage"><canvas id="cv"></canvas><div id="hint" hidden><span id="hintTxt"></span><button id="hintX" aria-label="Stop using this symbol"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+  <div id="stage"><canvas id="cv"></canvas><div id="hint" hidden><span id="hintTxt"></span><button id="hintSign" class="hsign" hidden>Sign</button><button id="hintX" aria-label="Stop using this symbol"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
   <div class="ebottom">
     <div id="textRow" class="row textrow">
       <input id="txt" placeholder="Label text, stays until you change it" autocomplete="off" enterkeyhint="done">
@@ -193,6 +194,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
       <div id="swatches" class="sw"></div>
       <div class="sep"></div>
       <button id="dashBtn" class="tog" aria-label="Dashed line"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h3M10 12h4M18 12h3"/></svg></button>
+      <button id="tipBtn" class="tog" aria-label="Arrow tip at the end"><svg class="i" viewBox="0 0 24 24"><path d="M3 17c4-8 8 2 15-7"/><path d="M13 9.5 18 10l-.8 5"/></svg></button>
       <div class="seg" id="widthSeg"><button data-w="S">S</button><button data-w="M">M</button><button data-w="L">L</button></div>
     </div>
     <div id="tools" class="row tools"></div>
@@ -205,6 +207,11 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
   <h2 id="dlgT"></h2><p id="dlgP"></p>
   <textarea id="dlgIn" rows="3"></textarea>
   <div class="actions"><button id="dlgNo" class="btn ghost">Cancel</button><button id="dlgOk" class="btn primary">OK</button></div>
+</div></div>
+<div id="sigpad" class="ov"><div class="dlg" style="max-width:640px">
+  <h2 id="sigT">Signature</h2><p>Sign with your finger inside the white area.</p>
+  <div style="background:#e9ebe8;border-radius:10px;padding:10px;display:flex;justify-content:center"><canvas id="sigCv" style="background:#fff;touch-action:none;border-radius:4px;max-width:100%"></canvas></div>
+  <div class="actions"><button id="sigClear" class="btn ghost">Clear</button><span style="flex:1"></span><button id="sigNo" class="btn ghost">Cancel</button><button id="sigOk" class="btn primary">Save signature</button></div>
 </div></div>
 <div id="toast" role="status"></div>
 <div id="busy"><span id="busyTxt">Working…</span></div>
@@ -245,6 +252,8 @@ const svg = n => `<svg class="i" viewBox="0 0 24 24">${ICON[n]}</svg>`;
 const COLORS = ['#FFD21F','#E3201B','#FF2BD6','#2AA7FF','#22C55E','#FF8A00','#FFFFFF','#1A1D20'];
 const W_MULT = {S:1.1, M:1.8, L:2.8};
 const SHAPES = ['arrow','line','rect','ellipse','pen'];
+const NEW_PRESETS = ['sg-nl','sg-fr','sg-en'];
+const isBoxT = t => t === 'rect' || t === 'ellipse' || t === 'sign';
 const DEFAULT_PRESETS = [
   {id:'s1', kind:'ellipse', small:true, stroke:'#FFD21F', fill:'#E3201B', dash:true, label:'Percez un trou de 16 mm pour faire passer le LSZH, puis refermez-le avec une pâte ignifuge.'},
   {id:'s2', kind:'rect', stroke:'#FFD21F', fill:'#E3201B', dash:true, label:'Intro Eurofiber existant au niveau -1'},
@@ -266,6 +275,9 @@ const DEFAULT_PRESETS = [
   {id:'l5', kind:'callout', stroke:'#E3201B', label:'Te koppelen 1xDB2 met 1xDB7'},
   {id:'l6', kind:'callout', stroke:'#E3201B', label:'Te koppelen nieuwe 1xDB7 met bestaande 1xDB7'},
   {id:'l7', kind:'callout', stroke:'#E3201B', label:'Doorsteek – PVC125mm – inhoud 1xDB7'},
+  {id:'sg-nl', kind:'sign', label:'Handtekening voor akkoord gebouweigenaar:'},
+  {id:'sg-fr', kind:'sign', label:'Signature pour approbation du propriétaire du bâtiment :'},
+  {id:'sg-en', kind:'sign', label:'Signature for approval by the building owner:'},
 ];
 const newPage = (title='Locatie 1: ') => ({id:uid(), title, layout:'grid', fit:'fill', photos:[]});
 const defaultState = () => ({
@@ -390,7 +402,7 @@ function leaderStart(a, b){
 }
 function boxFrame(a){
   if(!a) return null;
-  if(a.t === 'rect' || a.t === 'ellipse'){ const r = norm(a); return {cx:r.x+r.w/2, cy:r.y+r.h/2, w:r.w, h:r.h, rot:a.rot || 0}; }
+  if(isBoxT(a.t)){ const r = norm(a); return {cx:r.x+r.w/2, cy:r.y+r.h/2, w:r.w, h:r.h, rot:a.rot || 0}; }
   if(a.t === 'text' || a.t === 'callout'){ const b = labelBox(a); return {cx:b.x+b.w/2, cy:b.y+b.h/2, w:b.w, h:b.h, rot:a.rot || 0}; }
   return null;
 }
@@ -419,6 +431,18 @@ function drawAnn(ctx, a){
     else ctx.ellipse(0, 0, Math.max(r.w/2, .5), Math.max(r.h/2, .5), 0, 0, Math.PI*2);
     if(a.fill){ ctx.fillStyle = a.fill; ctx.fill(); }
     if(a.stroke){ ctx.lineWidth = a.sw; ctx.strokeStyle = a.stroke; ctx.setLineDash(a.dash ? [a.sw*2.6, a.sw*1.9] : []); ctx.stroke(); }
+  } else if(a.t === 'sign'){
+    const r = norm(a), g = signGeom(a);
+    ctx.translate(r.x+r.w/2, r.y+r.h/2); if(a.rot) ctx.rotate(a.rot); ctx.translate(-r.w/2, -r.h/2);
+    ctx.setLineDash([]); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, r.w, r.h);
+    ctx.lineWidth = Math.max(1, r.h*0.006); ctx.strokeStyle = '#111'; ctx.strokeRect(0, 0, r.w, r.h);
+    ctx.fillStyle = '#111'; ctx.font = '600 '+g.fs+'px Barlow, Arial, sans-serif'; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    g.lines.forEach((l, i) => ctx.fillText(l, g.pad, g.pad*0.8+i*g.fs*1.2));
+    ctx.strokeStyle = '#9aa0a6'; ctx.lineWidth = Math.max(1, r.h*0.004); ctx.strokeRect(g.ix, g.iy, g.iw, g.ih);
+    if(a.strokes && a.strokes.length){
+      ctx.strokeStyle = '#1b2a6b'; ctx.lineWidth = Math.max(1.5, g.ih*0.025); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      a.strokes.forEach(st => { if(!st.length) return; ctx.beginPath(); ctx.moveTo(g.ix+st[0][0]*g.iw, g.iy+st[0][1]*g.ih); for(let i = 1; i < st.length; i++) ctx.lineTo(g.ix+st[i][0]*g.iw, g.iy+st[i][1]*g.ih); if(st.length === 1) ctx.lineTo(g.ix+st[0][0]*g.iw+.5, g.iy+st[0][1]*g.ih); ctx.stroke(); });
+    }
   } else if(a.t === 'line' || a.t === 'arrow'){
     strokeLine(ctx, a, a.x1, a.y1, a.x2, a.y2, a.t === 'arrow');
   } else if(a.t === 'pen'){
@@ -448,6 +472,12 @@ function drawAnn(ctx, a){
     b.lines.forEach((l, i) => ctx.fillText(l, bx+b.pad, by+b.pad*0.65+i*b.lh+(b.lh-a.size)/2));
   }
   ctx.restore();
+}
+function signGeom(a){
+  const r = norm(a), pad = Math.max(2, r.h*0.06), fs = Math.max(4, r.h*0.1);
+  mctx.font = '600 '+fs+'px Barlow, Arial, sans-serif';
+  const lines = wrap(mctx, a.title || '', r.w-pad*2).slice(0, 3), th = pad*0.8 + lines.length*fs*1.2 + pad*0.5;
+  return {pad, fs, lines, ix:pad, iy:th, iw:Math.max(1, r.w-pad*2), ih:Math.max(1, r.h-th-pad)};
 }
 function drawSymbol(ctx, p, x, y, w, h){
   const sw = Math.max(2, h/9);
@@ -739,7 +769,7 @@ function fit(){
 window.addEventListener('resize', () => { if(E.rec && $('#editor').classList.contains('on')){ sizeCanvas(); fit(); render(); } });
 
 function bbox(a){
-  if(a.t === 'rect' || a.t === 'ellipse') return norm(a);
+  if(isBoxT(a.t)) return norm(a);
   if(a.t === 'line' || a.t === 'arrow') return {x:Math.min(a.x1,a.x2), y:Math.min(a.y1,a.y2), w:Math.abs(a.x2-a.x1), h:Math.abs(a.y2-a.y1)};
   if(a.t === 'pen'){ const xs = a.pts.map(p => p[0]), ys = a.pts.map(p => p[1]); const x = Math.min(...xs), y = Math.min(...ys); return {x, y, w:Math.max(...xs)-x, h:Math.max(...ys)-y}; }
   const b = labelBox(a);
@@ -750,7 +780,7 @@ function handles(a, s){
   const off = 38/s, hs = [], fr = boxFrame(a);
   if(fr){
     const R = (lx, ly) => rotPt(fr.cx+lx, fr.cy+ly, fr.cx, fr.cy, fr.rot);
-    if(a.t === 'rect' || a.t === 'ellipse') [['nw',-1,-1],['ne',1,-1],['sw',-1,1],['se',1,1]].forEach(([k, sx, sy]) => hs.push({...R(sx*fr.w/2, sy*fr.h/2), k}));
+    if(isBoxT(a.t)) [['nw',-1,-1],['ne',1,-1],['sw',-1,1],['se',1,1]].forEach(([k, sx, sy]) => hs.push({...R(sx*fr.w/2, sy*fr.h/2), k}));
     else { hs.push({...R(fr.w/2, fr.h/2), k:'size'}); if(a.t === 'callout') hs.push({x:a.ax, y:a.ay, k:'tip'}); }
     hs.push({...R(0, -fr.h/2-off), k:'rot', base:R(0, -fr.h/2)});
   } else if(a.t === 'line' || a.t === 'arrow'){ hs.push({x:a.x1, y:a.y1, k:'p1'}, {x:a.x2, y:a.y2, k:'p2'}); }
@@ -763,6 +793,7 @@ function segDist(p, x1, y1, x2, y2){
   return Math.hypot(p.x-(x1+t*dx), p.y-(y1+t*dy));
 }
 function hitLocal(a, p, tol){
+  if(a.t === 'sign'){ const r = norm(a); return p.x >= r.x-tol && p.x <= r.x+r.w+tol && p.y >= r.y-tol && p.y <= r.y+r.h+tol; }
   if(a.t === 'rect'){
     const r = norm(a);
     if(p.x < r.x-tol || p.x > r.x+r.w+tol || p.y < r.y-tol || p.y > r.y+r.h+tol) return false;
@@ -841,7 +872,7 @@ function newObj(t, p){
   const st = S.style, sw = U()*W_MULT[st.w], base = {id:uid(), preset:S.activePreset || null};
   if(t === 'rect' || t === 'ellipse') return {...base, t, x:p.x, y:p.y, w:0, h:0, stroke:st.color, fill:st.fill, dash:st.dash, sw};
   if(t === 'arrow' || t === 'line') return {...base, t, x1:p.x, y1:p.y, x2:p.x, y2:p.y, stroke:st.color, dash:st.dash, sw};
-  if(t === 'pen' || t === 'penarrow') return {...base, t:'pen', head:t === 'penarrow', pts:[[p.x, p.y]], stroke:st.color, dash:st.dash, sw};
+  if(t === 'pen' || t === 'penarrow') return {...base, t:'pen', head:st.head !== false, pts:[[p.x, p.y]], stroke:st.color, dash:st.dash, sw};
   return {...base, preset:null, t, x:p.x, y:p.y, ax:p.x, ay:p.y, text:S.text || 'Label', size:U()*9*S.textMult, maxW:E.rec.w*0.5, stroke:st.color, dash:false, sw:U()*1.35};
 }
 function centerBoxAt(a, p){ const b = labelBox(a); a.x = clamp(p.x-b.w/2, 0, Math.max(0, E.rec.w-b.w)); a.y = clamp(p.y-b.h/2, 0, Math.max(0, E.rec.h-b.h)); }
@@ -861,13 +892,13 @@ function transformFrom(a, o, m0, m, f, da, keepTip){
   if(o.t === 'pen'){ a.pts = o.pts.map(q => { const r = xf({x:q[0], y:q[1]}, m0, m, f, da); return [r.x, r.y]; }); return; }
   const fr = boxFrame(o), c = xf({x:fr.cx, y:fr.cy}, m0, m, f, da), w = fr.w*f, h = fr.h*f;
   a.rot = (o.rot || 0) + da;
-  if(o.t === 'rect' || o.t === 'ellipse'){ a.x = c.x-w/2; a.y = c.y-h/2; a.w = w; a.h = h; return; }
+  if(isBoxT(o.t)){ a.x = c.x-w/2; a.y = c.y-h/2; a.w = w; a.h = h; return; }
   a.size = o.size*f; a.maxW = o.maxW*f; a.x = c.x-w/2; a.y = c.y-h/2;
   if(o.t === 'callout' && !keepTip){ const t = xf({x:o.ax, y:o.ay}, m0, m, f, da); a.ax = t.x; a.ay = t.y; }
 }
 function applyHandle(a, o, k, p){
   if(k === 'rot'){
-    const c = objCenter(o); let da = Math.atan2(p.y-c.y, p.x-c.x) - E.rotA0;
+    const c = objCenter(o); let da = Math.atan2(p.y-c.y, p.x-c.x) - E.rotA0; da = Math.atan2(Math.sin(da), Math.cos(da));
     if(boxFrame(o)) da = snapAng((o.rot || 0)+da) - (o.rot || 0);
     transformFrom(a, o, c, c, 1, da, true); return;
   }
@@ -876,7 +907,7 @@ function applyHandle(a, o, k, p){
   if(k === 'tip'){ a.ax = p.x; a.ay = p.y; return; }
   const fr = boxFrame(o), lp = rotPt(p.x, p.y, fr.cx, fr.cy, -fr.rot);
   let L;
-  if(o.t === 'rect' || o.t === 'ellipse'){
+  if(isBoxT(o.t)){
     let x1 = fr.cx-fr.w/2, y1 = fr.cy-fr.h/2, x2 = fr.cx+fr.w/2, y2 = fr.cy+fr.h/2;
     if(k[1] === 'w') x1 = lp.x; else x2 = lp.x;
     if(k[0] === 'n') y1 = lp.y; else y2 = lp.y;
@@ -890,7 +921,7 @@ function applyHandle(a, o, k, p){
   const c = rotPt(L.x+L.w/2, L.y+L.h/2, fr.cx, fr.cy, fr.rot);
   a.x = c.x-L.w/2; a.y = c.y-L.h/2;
 }
-function finalize(a){ if(a.t === 'rect' || a.t === 'ellipse'){ const r = norm(a); a.x = r.x; a.y = r.y; a.w = r.w; a.h = r.h; } }
+function finalize(a){ if(isBoxT(a.t)){ const r = norm(a); a.x = r.x; a.y = r.y; a.w = r.w; a.h = r.h; } }
 
 /* pointer handling */
 const cpt = e => { const r = cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
@@ -925,8 +956,12 @@ stage.addEventListener('wheel', e => {
 }, {passive:false});
 
 function startPinch(){
-  const [a, b] = [...E.ptrs.values()], so = selObj(), A = toImg(a), B = toImg(b);
-  const near = so && (hitArea(so, A, 40/E.view.s) || hitArea(so, B, 40/E.view.s));
+  const [a, b] = [...E.ptrs.values()], A = toImg(a), B = toImg(b), M = {x:(A.x+B.x)/2, y:(A.y+B.y)/2}, tl = 40/E.view.s;
+  let so = selObj();
+  let near = so && (hitArea(so, A, tl) || hitArea(so, B, tl) || hitArea(so, M, tl));
+  if(!(so && (E.mode === 'move' || E.mode === 'handle' || near))){
+    for(let i = E.anns.length-1; i >= 0; i--){ const c = E.anns[i]; if(hitArea(c, A, tl/2) || hitArea(c, B, tl/2) || hitArea(c, M, tl/2)){ so = c; E.sel = c.id; near = true; break; } }
+  }
   if(so && (E.mode === 'move' || E.mode === 'handle' || near)){
     if(E.mode === 'move'){ if(!(E.down && E.down.moved)) snap(); }
     else if(E.mode !== 'handle') snap();
@@ -946,6 +981,7 @@ function moveObjGesture(){
   const [a, b] = [...E.ptrs.values()], A = toImg(a), B = toImg(b), g = E.g0, o = selObj(); if(!o) return;
   const f = clamp(Math.hypot(B.x-A.x, B.y-A.y)/g.d, 0.15, 10);
   let da = Math.atan2(B.y-A.y, B.x-A.x) - g.ang;
+  da = Math.atan2(Math.sin(da), Math.cos(da));
   if(boxFrame(E.orig)) da = snapAng((E.orig.rot || 0)+da) - (E.orig.rot || 0);
   transformFrom(o, E.orig, g.m, {x:(A.x+B.x)/2, y:(A.y+B.y)/2}, f, da, true);
   render();
@@ -997,7 +1033,7 @@ function moveSingle(sp){
 }
 function tapObj(o){
   const now = performance.now();
-  if(isLabel(o) && E.lastTap && E.lastTap.id === o.id && now-E.lastTap.t < 420){ E.lastTap = null; editLabel(o); return; }
+  if((isLabel(o) || o.t === 'sign') && E.lastTap && E.lastTap.id === o.id && now-E.lastTap.t < 420){ E.lastTap = null; if(o.t === 'sign') openSignPad(o); else editLabel(o); return; }
   E.lastTap = {id:o.id, t:now};
 }
 async function editLabel(o){
@@ -1045,7 +1081,7 @@ async function endSingle(){
 }
 
 /* toolbar */
-const TOOLS = [['select','Move'],['arrow','Arrow'],['line','Line'],['pen','Draw'],['penarrow','Curve'],['rect','Box'],['ellipse','Circle'],['callout','Label'],['text','Text'],['legend','Legend']];
+const TOOLS = [['select','Move'],['arrow','Arrow'],['line','Line'],['pen','Draw'],['rect','Box'],['ellipse','Circle'],['callout','Label'],['text','Text'],['legend','Legend']];
 $('#tools').innerHTML = TOOLS.map(([k, l]) => `<button class="tool" data-tool="${k}">${svg(k)}<span>${l}</span></button>`).join('');
 $('#tools').onclick = e => {
   const b = e.target.closest('[data-tool]'); if(!b) return;
@@ -1067,6 +1103,7 @@ function setStyle(k, v){
     if(k === 'color') o.stroke = v;
     if(k === 'fill' && (o.t === 'rect' || o.t === 'ellipse')) o.fill = v;
     if(k === 'dash' && o.t !== 'text') o.dash = v;
+    if(k === 'head' && o.t === 'pen') o.head = v;
     if(k === 'w' && !isLabel(o)) o.sw = U()*W_MULT[v];
     o.preset = null; changed();
   }
@@ -1079,6 +1116,7 @@ $('#swatches').onclick = e => {
   if(S.style.target === 'fill') setStyle('fill', c); else if(c) setStyle('color', c);
 };
 $('#dashBtn').onclick = () => setStyle('dash', !currentStyle().dash);
+$('#tipBtn').onclick = () => { const o = selObj(); setStyle('head', !(o && o.t === 'pen' ? !!o.head : S.style.head !== false)); };
 $('#widthSeg').onclick = e => { const b = e.target.closest('[data-w]'); if(b) setStyle('w', b.dataset.w); };
 const txt = $('#txt');
 txt.addEventListener('focus', () => { const o = selObj(); E.txtSnap = isLabel(o); if(E.txtSnap) snap(); });
@@ -1115,16 +1153,39 @@ function updateUI(){
   $('#swatches').innerHTML = (tgt === 'fill' ? ['none', ...COLORS] : COLORS).map(c =>
     `<button class="swatch ${c === 'none' ? 'none' : ''} ${(c === 'none' ? cur == null : (cur || '').toUpperCase() === c) ? 'on' : ''}" data-c="${c}" ${c !== 'none' ? `style="background:${c}"` : ''} aria-label="${c === 'none' ? 'No fill' : c}"></button>`).join('');
   $('#dashBtn').classList.toggle('on', !!st.dash);
+  const penCtx = (o && o.t === 'pen') || (!o && S.tool === 'pen');
+  $('#tipBtn').hidden = !penCtx; $('#tipBtn').classList.toggle('on', o && o.t === 'pen' ? !!o.head : S.style.head !== false);
   let w = S.style.w;
   if(o && !isLabel(o)){ const m = o.sw/U(); w = Object.keys(W_MULT).reduce((b, k) => Math.abs(W_MULT[k]-m) < Math.abs(W_MULT[b]-m) ? k : b, 'M'); }
   document.querySelectorAll('#widthSeg button').forEach(b => b.classList.toggle('on', b.dataset.w === w));
   $('#eUndo').disabled = !E.undo.length; $('#eRedo').disabled = !E.redo.length; $('#eDel').disabled = !o;
   const pr = S.presets.find(p => p.id === S.activePreset);
-  const hints = {select:'Tap to select. Drag empty space to pan, pinch to zoom.', callout:'Drag from the spot to where the label should sit.', text:'Tap to place the text.', pen:'Draw a cable route with your finger.', penarrow:'Draw a route; it ends with an arrow tip.'};
+  const hints = {select:'Tap to select. Drag empty space to pan, pinch to zoom.', callout:'Drag from the spot to where the label should sit.', text:'Tap to place the text.', pen:'Draw a route. It ends with an arrow tip; switch the tip off next to the dashed button.'};
   const h = pr ? 'Symbol: ' + pr.label : (o ? (isLabel(o) ? 'Drag to move. Two fingers or the blue dot to turn. Double-tap to edit.' : 'Drag to move. Two fingers to turn and resize. Tap empty space to deselect.') : (hints[S.tool] || ''));
-  $('#hint').hidden = !h; $('#hintTxt').textContent = h; $('#hintX').hidden = !pr;
+  const hs = o && o.t === 'sign' ? 'Drag to move. Tap Sign to let the owner sign.' : h;
+  $('#hint').hidden = !hs; $('#hintTxt').textContent = hs; $('#hintX').hidden = !pr || !!(o && o.t === 'sign'); $('#hintSign').hidden = !(o && o.t === 'sign');
 }
 $('#hintX').onclick = () => { S.activePreset = null; saveMeta(); updateUI(); };
+$('#hintSign').onclick = () => { const o = selObj(); if(o && o.t === 'sign') openSignPad(o); };
+function openSignPad(o){
+  const g = signGeom(o), ov = $('#sigpad'), c = $('#sigCv'), x = c.getContext('2d');
+  const maxW = Math.min(window.innerWidth-72, 600), maxH = Math.min(window.innerHeight*0.5, 360);
+  let w = maxW, h = w*g.ih/g.iw; if(h > maxH){ h = maxH; w = h*g.iw/g.ih; }
+  const dpr = window.devicePixelRatio || 1; c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); c.style.width = w+'px'; c.style.height = h+'px';
+  $('#sigT').textContent = o.title || 'Signature';
+  let strokes = clone(o.strokes || []), cur = null;
+  const draw = () => { x.setTransform(dpr,0,0,dpr,0,0); x.clearRect(0,0,w,h); x.strokeStyle = '#1b2a6b'; x.lineWidth = 2.5; x.lineCap = 'round'; x.lineJoin = 'round';
+    strokes.forEach(st => { x.beginPath(); st.forEach((q, i) => i ? x.lineTo(q[0]*w, q[1]*h) : x.moveTo(q[0]*w, q[1]*h)); if(st.length === 1) x.lineTo(st[0][0]*w+.5, st[0][1]*h); x.stroke(); }); };
+  const pt = e => { const r = c.getBoundingClientRect(); return [clamp((e.clientX-r.left)/r.width, 0, 1), clamp((e.clientY-r.top)/r.height, 0, 1)]; };
+  c.onpointerdown = e => { e.preventDefault(); try{ c.setPointerCapture(e.pointerId); }catch(_){} cur = [pt(e)]; strokes.push(cur); draw(); };
+  c.onpointermove = e => { if(!cur) return; cur.push(pt(e)); draw(); };
+  c.onpointerup = c.onpointercancel = () => { cur = null; };
+  const close = () => { ov.classList.remove('on'); c.onpointerdown = c.onpointermove = c.onpointerup = c.onpointercancel = null; };
+  $('#sigClear').onclick = () => { strokes = []; draw(); };
+  $('#sigNo').onclick = close;
+  $('#sigOk').onclick = () => { snap(); o.strokes = strokes.map(st => st.map(q => [+q[0].toFixed(4), +q[1].toFixed(4)])); close(); changed(); };
+  ov.classList.add('on'); draw();
+}
 $('#eUndo').onclick = undo; $('#eRedo').onclick = redo;
 $('#eDel').onclick = () => { const o = selObj(); if(!o) return; snap(); E.anns = E.anns.filter(a => a !== o); E.sel = null; changed(); };
 document.addEventListener('keydown', e => {
@@ -1174,6 +1235,11 @@ $('#eMore').onclick = () => {
 /* presets */
 function applyPreset(p){
   const o = selObj();
+  if(p.kind === 'sign'){
+    const w = E.rec.w*0.46, h = w*0.5;
+    const a = {id:uid(), t:'sign', title:p.label, x:E.rec.w-w-E.rec.w*0.03, y:E.rec.h-h-E.rec.h*0.04, w, h, rot:0, strokes:[], preset:null};
+    snap(); E.anns.push(a); E.sel = a.id; S.tool = 'select'; S.activePreset = null; saveMeta(); changed(); return;
+  }
   if(p.kind === 'callout' || p.kind === 'text'){
     S.tool = p.kind; S.text = p.label; S.activePreset = null;
     if(p.stroke) S.style.color = p.stroke;
@@ -1195,6 +1261,8 @@ function openPresets(manage){
     <div class="plist">${S.presets.filter(p => SHAPES.includes(p.kind)).map(p => `<div class="prow" role="button" tabindex="0" data-id="${p.id}"><canvas width="128" height="68"></canvas><span class="lbl">${esc(p.label)}</span>${edit ? `<button class="x" data-rm="${p.id}" aria-label="Remove">${svg('trash')}</button>` : ''}</div>`).join('')}</div>
     <h3>Labels</h3>
     <div class="plist">${S.presets.filter(p => p.kind === 'callout').map(p => `<div class="prow" role="button" tabindex="0" data-id="${p.id}"><span class="tag">Label</span><span class="lbl">${esc(p.label)}</span>${edit ? `<button class="x" data-rm="${p.id}" aria-label="Remove">${svg('trash')}</button>` : ''}</div>`).join('')}</div>
+    <h3>Signature boxes</h3>
+    <div class="plist">${S.presets.filter(p => p.kind === 'sign').map(p => `<div class="prow" role="button" tabindex="0" data-id="${p.id}"><span class="tag">Sign</span><span class="lbl">${esc(p.label)}</span>${edit ? `<button class="x" data-rm="${p.id}" aria-label="Remove">${svg('trash')}</button>` : ''}</div>`).join('')}</div>
     <div class="actions"><button class="btn ghost" data-newsym>${svg('plus')}Symbol from current style</button><button class="btn ghost" data-newlbl>${svg('plus')}New label</button></div>`,
     pn => {
       pn.querySelectorAll('.prow canvas').forEach(c => { const p = S.presets.find(x => x.id === c.parentElement.dataset.id); drawSymbol(c.getContext('2d'), p, 6, 4, 116, 60); });
@@ -1233,6 +1301,10 @@ function openPresets(manage){
     const m = await store.get('meta', 'state');
     if(m){ const d = defaultState(); S = {...d, ...m, project:{...d.project, ...(m.project||{})}, style:{...d.style, ...(m.style||{})}}; if(!S.pages || !S.pages.length) S.pages = [newPage()]; }
   }catch(e){}
+  S.seenPresets = S.seenPresets || [];
+  NEW_PRESETS.forEach(id => { if(!S.seenPresets.includes(id)){ if(!S.presets.some(p => p.id === id)) S.presets.push(clone(DEFAULT_PRESETS.find(p => p.id === id))); S.seenPresets.push(id); } });
+  if(S.tool === 'penarrow') S.tool = 'pen';
+  saveMeta();
   for(const pg of S.pages){
     const keep = [];
     for(const id of pg.photos){ try{ const r = await store.get('photos', id); if(r){ photos.set(id, r); keep.push(id); } }catch(e){} }
