@@ -381,6 +381,18 @@ function edgePoint(b, tx, ty){
   const t = Math.min(dx ? (b.w/2)/Math.abs(dx) : Infinity, dy ? (b.h/2)/Math.abs(dy) : Infinity);
   return {x:cx+dx*t, y:cy+dy*t, inside:t >= 1};
 }
+function rotPt(px, py, cx, cy, ang){ const c = Math.cos(ang), s = Math.sin(ang), dx = px-cx, dy = py-cy; return {x:cx+dx*c-dy*s, y:cy+dx*s+dy*c}; }
+function leaderStart(a, b){
+  const rot = a.rot || 0, cx = b.x+b.w/2, cy = b.y+b.h/2;
+  const lt = rotPt(a.ax, a.ay, cx, cy, -rot), e = edgePoint(b, lt.x, lt.y), w = rotPt(e.x, e.y, cx, cy, rot);
+  return {x:w.x, y:w.y, inside:e.inside};
+}
+function boxFrame(a){
+  if(!a) return null;
+  if(a.t === 'rect' || a.t === 'ellipse'){ const r = norm(a); return {cx:r.x+r.w/2, cy:r.y+r.h/2, w:r.w, h:r.h, rot:a.rot || 0}; }
+  if(a.t === 'text' || a.t === 'callout'){ const b = labelBox(a); return {cx:b.x+b.w/2, cy:b.y+b.h/2, w:b.w, h:b.h, rot:a.rot || 0}; }
+  return null;
+}
 function arrowHead(ctx, x1, y1, x2, y2, size, color){
   const ang = Math.atan2(y2-y1, x2-x1);
   ctx.save(); ctx.setLineDash([]); ctx.fillStyle = color; ctx.beginPath();
@@ -401,9 +413,9 @@ function strokeLine(ctx, a, x1, y1, x2, y2, head){
 function drawAnn(ctx, a){
   ctx.save(); ctx.lineJoin = 'round';
   if(a.t === 'rect' || a.t === 'ellipse'){
-    const r = norm(a); ctx.beginPath();
-    if(a.t === 'rect') ctx.rect(r.x, r.y, r.w, r.h);
-    else ctx.ellipse(r.x+r.w/2, r.y+r.h/2, Math.max(r.w/2, .5), Math.max(r.h/2, .5), 0, 0, Math.PI*2);
+    const r = norm(a); ctx.translate(r.x+r.w/2, r.y+r.h/2); if(a.rot) ctx.rotate(a.rot); ctx.beginPath();
+    if(a.t === 'rect') ctx.rect(-r.w/2, -r.h/2, r.w, r.h);
+    else ctx.ellipse(0, 0, Math.max(r.w/2, .5), Math.max(r.h/2, .5), 0, 0, Math.PI*2);
     if(a.fill){ ctx.fillStyle = a.fill; ctx.fill(); }
     if(a.stroke){ ctx.lineWidth = a.sw; ctx.strokeStyle = a.stroke; ctx.setLineDash(a.dash ? [a.sw*2.6, a.sw*1.9] : []); ctx.stroke(); }
   } else if(a.t === 'line' || a.t === 'arrow'){
@@ -420,12 +432,14 @@ function drawAnn(ctx, a){
   } else if(a.t === 'text' || a.t === 'callout'){
     const b = labelBox(a);
     if(a.t === 'callout'){
-      const e = edgePoint(b, a.ax, a.ay);
+      const e = leaderStart(a, b);
       if(!e.inside) strokeLine(ctx, a, e.x, e.y, a.ax, a.ay, true);
     }
-    ctx.setLineDash([]); ctx.fillStyle = '#fff'; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.translate(b.x+b.w/2, b.y+b.h/2); if(a.rot) ctx.rotate(a.rot);
+    const bx = -b.w/2, by = -b.h/2;
+    ctx.setLineDash([]); ctx.fillStyle = '#fff'; ctx.fillRect(bx, by, b.w, b.h);
     ctx.fillStyle = '#111'; ctx.font = FONT(a.size); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-    b.lines.forEach((l, i) => ctx.fillText(l, b.x+b.pad, b.y+b.pad*0.65+i*b.lh+(b.lh-a.size)/2));
+    b.lines.forEach((l, i) => ctx.fillText(l, bx+b.pad, by+b.pad*0.65+i*b.lh+(b.lh-a.size)/2));
   }
   ctx.restore();
 }
@@ -726,18 +740,23 @@ function bbox(a){
   if(a.t === 'callout'){ const x = Math.min(b.x, a.ax), y = Math.min(b.y, a.ay); return {x, y, w:Math.max(b.x+b.w, a.ax)-x, h:Math.max(b.y+b.h, a.ay)-y}; }
   return b;
 }
-function handles(a){
-  if(a.t === 'rect' || a.t === 'ellipse'){ const r = norm(a); return [{x:r.x,y:r.y,k:'nw'},{x:r.x+r.w,y:r.y,k:'ne'},{x:r.x,y:r.y+r.h,k:'sw'},{x:r.x+r.w,y:r.y+r.h,k:'se'}]; }
-  if(a.t === 'line' || a.t === 'arrow') return [{x:a.x1,y:a.y1,k:'p1'},{x:a.x2,y:a.y2,k:'p2'}];
-  if(isLabel(a)){ const b = labelBox(a); const hs = [{x:b.x+b.w, y:b.y+b.h, k:'size'}]; if(a.t === 'callout') hs.push({x:a.ax, y:a.ay, k:'tip'}); return hs; }
-  return [];
+function handles(a, s){
+  const off = 38/s, hs = [], fr = boxFrame(a);
+  if(fr){
+    const R = (lx, ly) => rotPt(fr.cx+lx, fr.cy+ly, fr.cx, fr.cy, fr.rot);
+    if(a.t === 'rect' || a.t === 'ellipse') [['nw',-1,-1],['ne',1,-1],['sw',-1,1],['se',1,1]].forEach(([k, sx, sy]) => hs.push({...R(sx*fr.w/2, sy*fr.h/2), k}));
+    else { hs.push({...R(fr.w/2, fr.h/2), k:'size'}); if(a.t === 'callout') hs.push({x:a.ax, y:a.ay, k:'tip'}); }
+    hs.push({...R(0, -fr.h/2-off), k:'rot', base:R(0, -fr.h/2)});
+  } else if(a.t === 'line' || a.t === 'arrow'){ hs.push({x:a.x1, y:a.y1, k:'p1'}, {x:a.x2, y:a.y2, k:'p2'}); }
+  else if(a.t === 'pen'){ const b = bbox(a); hs.push({x:b.x+b.w/2, y:b.y-off, k:'rot', base:{x:b.x+b.w/2, y:b.y}}); }
+  return hs;
 }
 function segDist(p, x1, y1, x2, y2){
   const dx = x2-x1, dy = y2-y1, l = dx*dx+dy*dy;
   const t = l ? clamp(((p.x-x1)*dx+(p.y-y1)*dy)/l, 0, 1) : 0;
   return Math.hypot(p.x-(x1+t*dx), p.y-(y1+t*dy));
 }
-function hit(a, p, tol){
+function hitLocal(a, p, tol){
   if(a.t === 'rect'){
     const r = norm(a);
     if(p.x < r.x-tol || p.x > r.x+r.w+tol || p.y < r.y-tol || p.y > r.y+r.h+tol) return false;
@@ -751,8 +770,12 @@ function hit(a, p, tol){
   if(a.t === 'line' || a.t === 'arrow') return segDist(p, a.x1, a.y1, a.x2, a.y2) <= tol + a.sw/2;
   if(a.t === 'pen'){ for(let i = 1; i < a.pts.length; i++) if(segDist(p, a.pts[i-1][0], a.pts[i-1][1], a.pts[i][0], a.pts[i][1]) <= tol + a.sw/2) return true; return a.pts.length === 1 && Math.hypot(p.x-a.pts[0][0], p.y-a.pts[0][1]) <= tol; }
   const b = labelBox(a);
-  if(p.x >= b.x-tol && p.x <= b.x+b.w+tol && p.y >= b.y-tol && p.y <= b.y+b.h+tol) return true;
-  if(a.t === 'callout'){ const e = edgePoint(b, a.ax, a.ay); return segDist(p, e.x, e.y, a.ax, a.ay) <= tol + a.sw/2; }
+  return p.x >= b.x-tol && p.x <= b.x+b.w+tol && p.y >= b.y-tol && p.y <= b.y+b.h+tol;
+}
+function hit(a, p, tol){
+  const fr = boxFrame(a);
+  if(hitLocal(a, fr && fr.rot ? rotPt(p.x, p.y, fr.cx, fr.cy, -fr.rot) : p, tol)) return true;
+  if(a.t === 'callout'){ const e = leaderStart(a, labelBox(a)); return segDist(p, e.x, e.y, a.ax, a.ay) <= tol + a.sw/2; }
   return false;
 }
 function topHit(p, tol){ for(let i = E.anns.length-1; i >= 0; i--) if(hit(E.anns[i], p, tol)) return E.anns[i]; return null; }
@@ -769,13 +792,19 @@ function render(){
   const o = selObj();
   if(o){
     ctx.setTransform(d, 0, 0, d, 0, 0);
-    const b = bbox(o), pad = 8;
+    const pad = 8, fr = boxFrame(o), S2 = (x, y) => [x*s+ox, y*s+oy];
     ctx.save(); ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.95)';
-    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 3;
-    ctx.strokeRect(b.x*s+ox-pad, b.y*s+oy-pad, b.w*s+pad*2, b.h*s+pad*2); ctx.restore();
-    handles(o).forEach(h => {
-      ctx.beginPath(); ctx.arc(h.x*s+ox, h.y*s+oy, 10, 0, Math.PI*2);
-      ctx.fillStyle = h.k === 'size' ? '#FFD21F' : '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1A1D20'; ctx.stroke();
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 3; ctx.beginPath();
+    if(fr){
+      const hw = fr.w/2+pad/s, hh = fr.h/2+pad/s;
+      [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].forEach(([lx, ly], i) => { const q = rotPt(fr.cx+lx, fr.cy+ly, fr.cx, fr.cy, fr.rot); const [X, Y] = S2(q.x, q.y); if(i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+      ctx.closePath();
+    } else { const b = bbox(o); ctx.rect(b.x*s+ox-pad, b.y*s+oy-pad, b.w*s+pad*2, b.h*s+pad*2); }
+    ctx.stroke(); ctx.restore();
+    handles(o, s).forEach(h => {
+      if(h.base){ ctx.beginPath(); ctx.moveTo(...S2(h.base.x, h.base.y)); ctx.lineTo(...S2(h.x, h.y)); ctx.setLineDash([]); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(h.x*s+ox, h.y*s+oy, 11, 0, Math.PI*2);
+      ctx.fillStyle = h.k === 'size' ? '#FFD21F' : h.k === 'rot' ? '#2AA7FF' : '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1A1D20'; ctx.stroke();
     });
   }
 }
@@ -808,19 +837,46 @@ function translate(a, o, dx, dy){
   ['x','y','x1','y1','x2','y2','ax','ay'].forEach((k, i) => { if(o[k] !== undefined) a[k] = o[k] + (i % 2 ? dy : dx); });
   if(o.pts) a.pts = o.pts.map(q => [q[0]+dx, q[1]+dy]);
 }
+function snapAng(r){ const st = Math.PI/2, n = Math.round(r/st); return Math.abs(r-n*st) < 0.07 ? n*st : r; }
+function objCenter(o){
+  const fr = boxFrame(o); if(fr) return {x:fr.cx, y:fr.cy};
+  if(o.t === 'line' || o.t === 'arrow') return {x:(o.x1+o.x2)/2, y:(o.y1+o.y2)/2};
+  const b = bbox(o); return {x:b.x+b.w/2, y:b.y+b.h/2};
+}
+function xf(p, m0, m, f, da){ const q = rotPt(p.x, p.y, m0.x, m0.y, da); return {x:m.x+(q.x-m0.x)*f, y:m.y+(q.y-m0.y)*f}; }
+function transformFrom(a, o, m0, m, f, da, keepTip){
+  if(o.t === 'line' || o.t === 'arrow'){ const p1 = xf({x:o.x1, y:o.y1}, m0, m, f, da), p2 = xf({x:o.x2, y:o.y2}, m0, m, f, da); a.x1 = p1.x; a.y1 = p1.y; a.x2 = p2.x; a.y2 = p2.y; return; }
+  if(o.t === 'pen'){ a.pts = o.pts.map(q => { const r = xf({x:q[0], y:q[1]}, m0, m, f, da); return [r.x, r.y]; }); return; }
+  const fr = boxFrame(o), c = xf({x:fr.cx, y:fr.cy}, m0, m, f, da), w = fr.w*f, h = fr.h*f;
+  a.rot = (o.rot || 0) + da;
+  if(o.t === 'rect' || o.t === 'ellipse'){ a.x = c.x-w/2; a.y = c.y-h/2; a.w = w; a.h = h; return; }
+  a.size = o.size*f; a.maxW = o.maxW*f; a.x = c.x-w/2; a.y = c.y-h/2;
+  if(o.t === 'callout' && !keepTip){ const t = xf({x:o.ax, y:o.ay}, m0, m, f, da); a.ax = t.x; a.ay = t.y; }
+}
 function applyHandle(a, o, k, p){
-  if(a.t === 'rect' || a.t === 'ellipse'){
-    const r = norm(o); let x1 = r.x, y1 = r.y, x2 = r.x+r.w, y2 = r.y+r.h;
-    if(k[1] === 'w') x1 = p.x; else x2 = p.x;
-    if(k[0] === 'n') y1 = p.y; else y2 = p.y;
-    a.x = x1; a.y = y1; a.w = x2-x1; a.h = y2-y1;
-  } else if(k === 'p1'){ a.x1 = p.x; a.y1 = p.y; }
-  else if(k === 'p2'){ a.x2 = p.x; a.y2 = p.y; }
-  else if(k === 'tip'){ a.ax = p.x; a.ay = p.y; }
-  else if(k === 'size'){
-    const b0 = labelBox(o), f = clamp(Math.max((p.x-b0.x)/b0.w, (p.y-b0.y)/b0.h), 0.25, 6);
-    a.size = o.size*f; a.maxW = o.maxW*f;
+  if(k === 'rot'){
+    const c = objCenter(o); let da = Math.atan2(p.y-c.y, p.x-c.x) - E.rotA0;
+    if(boxFrame(o)) da = snapAng((o.rot || 0)+da) - (o.rot || 0);
+    transformFrom(a, o, c, c, 1, da, true); return;
   }
+  if(k === 'p1'){ a.x1 = p.x; a.y1 = p.y; return; }
+  if(k === 'p2'){ a.x2 = p.x; a.y2 = p.y; return; }
+  if(k === 'tip'){ a.ax = p.x; a.ay = p.y; return; }
+  const fr = boxFrame(o), lp = rotPt(p.x, p.y, fr.cx, fr.cy, -fr.rot);
+  let L;
+  if(o.t === 'rect' || o.t === 'ellipse'){
+    let x1 = fr.cx-fr.w/2, y1 = fr.cy-fr.h/2, x2 = fr.cx+fr.w/2, y2 = fr.cy+fr.h/2;
+    if(k[1] === 'w') x1 = lp.x; else x2 = lp.x;
+    if(k[0] === 'n') y1 = lp.y; else y2 = lp.y;
+    L = {x:Math.min(x1, x2), y:Math.min(y1, y2), w:Math.abs(x2-x1), h:Math.abs(y2-y1)};
+    a.w = L.w; a.h = L.h;
+  } else if(k === 'size'){
+    const tlx = fr.cx-fr.w/2, tly = fr.cy-fr.h/2, f = clamp(Math.max((lp.x-tlx)/fr.w, (lp.y-tly)/fr.h), 0.25, 6);
+    a.size = o.size*f; a.maxW = o.maxW*f;
+    L = {x:tlx, y:tly, w:fr.w*f, h:fr.h*f};
+  } else return;
+  const c = rotPt(L.x+L.w/2, L.y+L.h/2, fr.cx, fr.cy, fr.rot);
+  a.x = c.x-L.w/2; a.y = c.y-L.h/2;
 }
 function finalize(a){ if(a.t === 'rect' || a.t === 'ellipse'){ const r = norm(a); a.x = r.x; a.y = r.y; a.w = r.w; a.h = r.h; } }
 
@@ -839,12 +895,14 @@ stage.addEventListener('pointermove', e => {
   if(!E.ptrs.has(e.pointerId)) return;
   E.ptrs.set(e.pointerId, cpt(e));
   if(E.mode === 'pinch' && E.ptrs.size >= 2) movePinch();
+  else if(E.mode === 'otrans'){ if(E.ptrs.size >= 2) moveObjGesture(); }
   else if(E.down) moveSingle(cpt(e));
 });
 const up = e => {
   if(!E.ptrs.has(e.pointerId)) return;
   E.ptrs.delete(e.pointerId);
-  if(E.mode === 'pinch' || E.mode === 'idle'){ E.mode = E.ptrs.size ? 'idle' : null; return; }
+  if(E.mode === 'otrans') changed();
+  if(E.mode === 'pinch' || E.mode === 'idle' || E.mode === 'otrans'){ E.mode = E.ptrs.size ? 'idle' : null; return; }
   if(E.down) endSingle();
 };
 stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
@@ -855,11 +913,27 @@ stage.addEventListener('wheel', e => {
 }, {passive:false});
 
 function startPinch(){
-  const [a, b] = [...E.ptrs.values()];
+  const [a, b] = [...E.ptrs.values()], so = selObj();
+  if((E.mode === 'move' || E.mode === 'handle') && so){
+    if(E.mode === 'move' && !(E.down && E.down.moved)) snap();
+    finalize(so);
+    const A = toImg(a), B = toImg(b);
+    E.orig = clone(so); E.down = null; E.mode = 'otrans';
+    E.g0 = {m:{x:(A.x+B.x)/2, y:(A.y+B.y)/2}, d:Math.hypot(B.x-A.x, B.y-A.y) || 1, ang:Math.atan2(B.y-A.y, B.x-A.x)};
+    render(); return;
+  }
   if(E.mode === 'draw') E.draft = null;
-  if((E.mode === 'move' || E.mode === 'handle') && E.down && !E.down.moved && E.mode === 'handle') E.undo.pop();
+  if(E.mode === 'handle' && E.down && !E.down.moved) E.undo.pop();
   E.down = null; E.mode = 'pinch';
   E.pinch = {d:Math.hypot(a.x-b.x, a.y-b.y) || 1, m:{x:(a.x+b.x)/2, y:(a.y+b.y)/2}, ...E.view};
+  render();
+}
+function moveObjGesture(){
+  const [a, b] = [...E.ptrs.values()], A = toImg(a), B = toImg(b), g = E.g0, o = selObj(); if(!o) return;
+  const f = clamp(Math.hypot(B.x-A.x, B.y-A.y)/g.d, 0.15, 10);
+  let da = Math.atan2(B.y-A.y, B.x-A.x) - g.ang;
+  if(boxFrame(E.orig)) da = snapAng((E.orig.rot || 0)+da) - (E.orig.rot || 0);
+  transformFrom(o, E.orig, g.m, {x:(A.x+B.x)/2, y:(A.y+B.y)/2}, f, da, true);
   render();
 }
 function movePinch(){
@@ -870,18 +944,19 @@ function movePinch(){
 }
 function startSingle(sp){
   const p = toImg(sp), tol = 14/E.view.s, sel = selObj();
-  E.down = {sp, p, moved:false};
+  E.down = {sp, p, moved:false, hadSel:!!sel};
   if(sel){
-    for(const h of handles(sel)){
-      if(Math.hypot(p.x-h.x, p.y-h.y) <= 24/E.view.s){ snap(); E.mode = 'handle'; E.hk = h.k; E.orig = clone(sel); return; }
+    for(const h of handles(sel, E.view.s)){
+      if(Math.hypot(p.x-h.x, p.y-h.y) <= 24/E.view.s){
+        snap(); E.mode = 'handle'; E.hk = h.k; E.orig = clone(sel);
+        if(h.k === 'rot'){ const c = objCenter(sel); E.rotA0 = Math.atan2(p.y-c.y, p.x-c.x); }
+        return;
+      }
     }
   }
-  if(S.tool === 'select'){
-    const o = topHit(p, tol);
-    if(o){ E.sel = o.id; E.mode = 'move'; E.orig = clone(o); render(); updateUI(); return; }
-    E.sel = null; E.mode = 'pan'; E.panO = {ox:E.view.ox, oy:E.view.oy}; render(); updateUI(); return;
-  }
-  if(sel && hit(sel, p, tol)){ E.mode = 'move'; E.orig = clone(sel); return; }
+  const o = (sel && hit(sel, p, tol)) ? sel : topHit(p, tol);
+  if(o){ E.sel = o.id; E.mode = 'move'; E.orig = clone(o); render(); updateUI(); return; }
+  if(S.tool === 'select'){ E.sel = null; E.mode = 'pan'; E.panO = {ox:E.view.ox, oy:E.view.oy}; render(); updateUI(); return; }
   if(S.tool === 'text'){ E.mode = 'place'; return; }
   E.draft = newObj(S.tool, p); E.mode = 'draw';
   if(S.tool === 'callout') centerBoxAt(E.draft, p);
@@ -922,8 +997,7 @@ async function endSingle(){
   if(mode === 'move'){ if(!d.moved){ const o = selObj(); if(o) tapObj(o); render(); updateUI(); return; } changed(); return; }
   if(mode === 'pan'){ render(); return; }
   if(mode === 'place'){
-    const o = topHit(d.p, tol);
-    if(o){ E.sel = o.id; tapObj(o); render(); updateUI(); return; }
+    if(d.hadSel){ E.sel = null; render(); updateUI(); return; }
     let t = S.text;
     if(!t.trim()){ t = await askText('Text', '', 'Place'); if(!t) return; }
     S.text = t; $('#txt').value = t; addRecent(t);
@@ -933,8 +1007,7 @@ async function endSingle(){
   if(mode === 'draw'){
     const a = E.draft; E.draft = null;
     if(!d.moved){
-      const o = topHit(d.p, tol);
-      if(o){ E.sel = o.id; tapObj(o); render(); updateUI(); return; }
+      if(d.hadSel){ E.sel = null; render(); updateUI(); return; }
       if(a.t === 'rect' || a.t === 'ellipse'){
         const pr = S.presets.find(x => x.id === a.preset), r = U()*(pr && pr.small ? 3.2 : 14);
         a.w = r*2; a.h = a.t === 'rect' ? r*1.4 : r*2; a.x = d.p.x-a.w/2; a.y = d.p.y-a.h/2;
@@ -1034,7 +1107,7 @@ function updateUI(){
   $('#eUndo').disabled = !E.undo.length; $('#eRedo').disabled = !E.redo.length; $('#eDel').disabled = !o;
   const pr = S.presets.find(p => p.id === S.activePreset);
   const hints = {select:'Tap to select. Drag empty space to pan, pinch to zoom.', callout:'Drag from the spot to where the label should sit.', text:'Tap to place the text.', pen:'Draw a cable route with your finger.'};
-  const h = pr ? 'Symbol: ' + pr.label : (o ? (isLabel(o) ? 'Double-tap the label to edit. Yellow dot resizes.' : 'Drag to move, white dots to resize.') : (hints[S.tool] || ''));
+  const h = pr ? 'Symbol: ' + pr.label : (o ? (isLabel(o) ? 'Drag to move. Two fingers or the blue dot to turn. Double-tap to edit.' : 'Drag to move. Two fingers to turn and resize. Tap empty space to deselect.') : (hints[S.tool] || ''));
   $('#hint').hidden = !h; $('#hintTxt').textContent = h; $('#hintX').hidden = !pr;
 }
 $('#hintX').onclick = () => { S.activePreset = null; saveMeta(); updateUI(); };
