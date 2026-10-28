@@ -111,6 +111,19 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 .tool.on{background:var(--yellow);color:#1A1D20}
 .tool svg.i{width:22px;height:22px}
 
+/* In-app camera */
+#cam{position:fixed;top:0;left:0;right:0;bottom:0;z-index:30;background:#000;display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color:#fff}
+#cam.on{display:flex}
+#camWrap{flex:1;position:relative;overflow:hidden}
+#camV{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+#camFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+.camtop{display:flex;align-items:center;gap:8px;padding:8px}
+.camtop .ib{color:#fff}
+#camInfo{flex:1;font-size:13px;opacity:.7;text-align:center}
+.cambar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 18px}
+.cambar .tb{color:#fff;background:rgba(255,255,255,.14);min-width:96px;justify-content:center}
+.shutter{width:78px;height:78px;border-radius:50%;background:#fff;border:5px solid var(--yellow);box-shadow:0 0 0 3px #000 inset}
+.shutter:active{transform:scale(.94)}
 /* Overlays */
 .ov{position:fixed;inset:0;z-index:40;background:rgba(10,12,14,.55);display:none;align-items:flex-end;justify-content:center}
 .ov.on{display:flex}
@@ -162,7 +175,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
     <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
   </header>
-  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.6</span></p>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.7</span></p>
   <main id="pages"></main>
   <div class="dock">
     <button id="btnGallery" class="btn ghost" aria-label="Add from gallery"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></button>
@@ -201,6 +214,11 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
   </div>
 </div>
 
+<div id="cam" aria-label="Camera">
+  <div class="camtop"><button id="camX" class="ib" aria-label="Close camera"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span id="camInfo"></span><button id="camLens" class="tb" style="color:#fff;background:rgba(255,255,255,.14)" hidden>Lens</button></div>
+  <div id="camWrap"><video id="camV" playsinline muted autoplay></video><div id="camFlash"></div></div>
+  <div class="cambar"><button id="camApp" class="tb">Photo app</button><button id="camShoot" class="shutter" aria-label="Take photo"></button><span style="min-width:96px"></span></div>
+</div>
 <div id="sheet" class="ov"><div class="panel" id="sheetPanel"></div></div>
 <div id="preview" class="ov"><div class="panel" id="pvPanel"></div></div>
 <div id="dlg" class="ov"><div class="dlg">
@@ -614,6 +632,10 @@ async function ingest(file){
   const k = Math.min(1, MAX/Math.max(sw, sh)), w = Math.round(sw*k), h = Math.round(sh*k);
   const c = mkCanvas(w, h); c.getContext('2d').drawImage(src, 0, 0, w, h);
   if(src.close) src.close();
+  return addCanvasPhoto(c);
+}
+function addCanvasPhoto(c){
+  const w = c.width, h = c.height;
   const t = mkCanvas(w*480/Math.max(w,h), h*480/Math.max(w,h)); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
   const rec = {id:uid(), blob:null, w, h, anns:[], thumb:t.toDataURL('image/jpeg', 0.75)};
   photos.set(rec.id, rec);
@@ -622,7 +644,7 @@ async function ingest(file){
     canvasBlob(c, 'image/jpeg', 0.88)
       .then(blob => { rec.blob = blob; return store.put('photos', rec); })
       .catch(() => toast('Couldn’t save this photo. Storage may be full.'));
-  }, 50);
+  }, 400);
   return rec;
 }
 function nextTitle(t){ const m = /^(\D*?)(\d+)/.exec(t || ''); return m ? t.replace(m[0], m[1] + (parseInt(m[2], 10)+1)) : (t || ''); }
@@ -636,7 +658,55 @@ function locate(id){ for(let i = 0; i < S.pages.length; i++){ const j = S.pages[
 function flatIds(){ return S.pages.flatMap(p => p.photos); }
 
 let pendingPage = null;
-$('#btnCamera').onclick = () => { pendingPage = null; $('#camIn').click(); };
+const CAM = {stream:null, devices:[], idx:0};
+function stopStream(){ if(CAM.stream){ CAM.stream.getTracks().forEach(t => t.stop()); CAM.stream = null; } $('#camV').srcObject = null; }
+async function startStream(){
+  stopStream();
+  const size = {width:{ideal:4096}, height:{ideal:3072}};
+  const dev = CAM.devices[CAM.idx] ? CAM.devices[CAM.idx].deviceId : S.camDevice;
+  const video = dev ? {deviceId:{exact:dev}, ...size} : {facingMode:{ideal:'environment'}, ...size};
+  try{ CAM.stream = await navigator.mediaDevices.getUserMedia({audio:false, video}); }
+  catch(e){ if(!dev) throw e; S.camDevice = null; CAM.devices = []; CAM.stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{ideal:'environment'}, ...size}}); }
+  const v = $('#camV'); v.srcObject = CAM.stream; try{ await v.play(); }catch(e){}
+  const tr = CAM.stream.getVideoTracks()[0], st = tr.getSettings();
+  if(!CAM.devices.length){
+    try{
+      const all = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+      const back = all.filter(d => /back|rear|environment|achter|arrière/i.test(d.label));
+      CAM.devices = back.length ? back : all;
+      CAM.idx = Math.max(0, CAM.devices.findIndex(d => d.deviceId === st.deviceId));
+    }catch(e){}
+  }
+  if(st.deviceId){ S.camDevice = st.deviceId; saveMeta(); }
+  $('#camLens').hidden = CAM.devices.length < 2;
+  $('#camLens').textContent = `Lens ${CAM.idx+1} of ${CAM.devices.length}`;
+  $('#camInfo').textContent = st.width ? `${Math.max(st.width, st.height)} × ${Math.min(st.width, st.height)}` : '';
+}
+async function openCam(pi){
+  pendingPage = pi;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ $('#camIn').click(); return; }
+  $('#cam').classList.add('on');
+  if(CAM.stream && CAM.stream.active) return;
+  try{ await startStream(); }
+  catch(e){ $('#cam').classList.remove('on'); stopStream(); toast('The camera can’t open here, so the photo app opens instead.'); $('#camIn').click(); }
+}
+function closeCam(keep){ $('#cam').classList.remove('on'); if(!keep) stopStream(); }
+$('#camX').onclick = () => closeCam(false);
+$('#camApp').onclick = () => { closeCam(false); $('#camIn').click(); };
+$('#camLens').onclick = async () => { if(CAM.devices.length < 2) return; CAM.idx = (CAM.idx+1) % CAM.devices.length; try{ await startStream(); }catch(e){ toast('That lens couldn’t be opened.'); } };
+$('#camShoot').onclick = async () => {
+  const v = $('#camV'), w0 = v.videoWidth, h0 = v.videoHeight; if(!w0) return;
+  const t0 = performance.now();
+  const k = Math.min(1, 2048/Math.max(w0, h0)), c = mkCanvas(w0*k, h0*k);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  const fl = $('#camFlash'); fl.style.transition = 'none'; fl.style.opacity = '0.8'; requestAnimationFrame(() => { fl.style.transition = 'opacity .25s'; fl.style.opacity = '0'; });
+  const rec = addCanvasPhoto(c); placePhoto(rec.id, pendingPage);
+  closeCam(true);
+  await openEditor(rec.id); renderHome();
+  toast('Photo ready in ' + ((performance.now()-t0)/1000).toFixed(1) + ' s');
+};
+document.addEventListener('visibilitychange', () => { if(document.hidden){ stopStream(); $('#cam').classList.remove('on'); } });
+$('#btnCamera').onclick = () => openCam(null);
 $('#btnGallery').onclick = () => { pendingPage = null; $('#galIn').click(); };
 $('#camIn').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if(!f) return;
@@ -698,7 +768,7 @@ function renderHome(){
     sec.querySelectorAll('[data-photo]').forEach(b => b.onclick = () => openEditor(b.dataset.photo));
     sec.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => { pg.layout = b.dataset.layout; saveMeta(); renderHome(); });
     sec.querySelectorAll('[data-fit]').forEach(b => b.onclick = () => { pg.fit = b.dataset.fit; saveMeta(); renderHome(); });
-    const add = sec.querySelector('[data-add]'); if(add) add.onclick = () => { pendingPage = pi; $('#camIn').click(); };
+    const add = sec.querySelector('[data-add]'); if(add) add.onclick = () => openCam(pi);
     const pv = sec.querySelector('[data-pv]'); if(pv) pv.onclick = () => openPreview(pi);
     const rm = sec.querySelector('[data-rm]'); if(rm) rm.onclick = () => { S.pages.splice(pi, 1); saveMeta(); renderHome(); };
   });
@@ -1211,8 +1281,8 @@ document.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
 });
 async function closeEditor(){ await saveEditor(); $('#editor').classList.remove('on'); E.rec = null; renderHome(); }
-$('#eDone').onclick = closeEditor;
-$('#eNext').onclick = async () => { const loc = locate(E.rec.id); await closeEditor(); pendingPage = loc ? loc.pi : null; $('#camIn').click(); };
+$('#eDone').onclick = async () => { await closeEditor(); stopStream(); };
+$('#eNext').onclick = async () => { const loc = locate(E.rec.id); await closeEditor(); openCam(loc ? loc.pi : null); };
 $('#eMore').onclick = () => {
   const ids = flatIds(), idx = ids.indexOf(E.rec.id), prev = idx > 0 ? photos.get(ids[idx-1]) : null;
   openSheet('sheet', `
