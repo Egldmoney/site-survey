@@ -162,7 +162,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
     <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
   </header>
-  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.5</span></p>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.6</span></p>
   <main id="pages"></main>
   <div class="dock">
     <button id="btnGallery" class="btn ghost" aria-label="Add from gallery"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></button>
@@ -598,20 +598,32 @@ async function exportPDF(indexes){
 }
 
 /* ---------- photos & pages ---------- */
-async function ingest(file){
+async function decodeScaled(file, MAX){
+  if(window.createImageBitmap){
+    try{ return await createImageBitmap(file, {resizeWidth:MAX, resizeQuality:'medium', imageOrientation:'from-image'}); }catch(e){}
+    try{ return await createImageBitmap(file); }catch(e){}
+  }
   const url = URL.createObjectURL(file);
-  try{
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('This file isn’t an image the browser can open.')); i.src = url; });
-    const MAX = 2048; let w = img.naturalWidth, h = img.naturalHeight; const k = Math.min(1, MAX/Math.max(w, h));
-    w = Math.round(w*k); h = Math.round(h*k);
-    const c = mkCanvas(w, h); c.getContext('2d').drawImage(img, 0, 0, w, h);
-    const blob = await canvasBlob(c, 'image/jpeg', 0.88);
-    const t = mkCanvas(w*480/Math.max(w,h), h*480/Math.max(w,h)); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
-    const rec = {id:uid(), blob, w, h, anns:[], thumb:t.toDataURL('image/jpeg', 0.75)};
-    await store.put('photos', rec);
-    photos.set(rec.id, rec);
-    return rec;
-  } finally { URL.revokeObjectURL(url); }
+  try{ return await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('This file isn’t an image the browser can open.')); i.src = url; }); }
+  finally{ setTimeout(() => URL.revokeObjectURL(url), 1000); }
+}
+async function ingest(file){
+  const MAX = 2048, src = await decodeScaled(file, MAX);
+  const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
+  if(!sw || !sh) throw new Error('This file isn’t an image the browser can open.');
+  const k = Math.min(1, MAX/Math.max(sw, sh)), w = Math.round(sw*k), h = Math.round(sh*k);
+  const c = mkCanvas(w, h); c.getContext('2d').drawImage(src, 0, 0, w, h);
+  if(src.close) src.close();
+  const t = mkCanvas(w*480/Math.max(w,h), h*480/Math.max(w,h)); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
+  const rec = {id:uid(), blob:null, w, h, anns:[], thumb:t.toDataURL('image/jpeg', 0.75)};
+  photos.set(rec.id, rec);
+  imgCache.set(rec.id, Promise.resolve(c));
+  setTimeout(() => {
+    canvasBlob(c, 'image/jpeg', 0.88)
+      .then(blob => { rec.blob = blob; return store.put('photos', rec); })
+      .catch(() => toast('Couldn’t save this photo. Storage may be full.'));
+  }, 50);
+  return rec;
 }
 function nextTitle(t){ const m = /^(\D*?)(\d+)/.exec(t || ''); return m ? t.replace(m[0], m[1] + (parseInt(m[2], 10)+1)) : (t || ''); }
 function placePhoto(id, pi){
@@ -628,8 +640,13 @@ $('#btnCamera').onclick = () => { pendingPage = null; $('#camIn').click(); };
 $('#btnGallery').onclick = () => { pendingPage = null; $('#galIn').click(); };
 $('#camIn').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  const t0 = performance.now();
   busy(true, 'Loading photo…');
-  try{ const rec = await ingest(f); placePhoto(rec.id, pendingPage); busy(false); renderHome(); openEditor(rec.id); }
+  try{
+    const rec = await ingest(f); placePhoto(rec.id, pendingPage); busy(false);
+    await openEditor(rec.id); renderHome();
+    toast('Photo ready in ' + ((performance.now()-t0)/1000).toFixed(1) + ' s');
+  }
   catch(err){ busy(false); toast(err.message || 'Couldn’t load that photo.'); }
 };
 $('#galIn').onchange = async e => {
@@ -755,7 +772,7 @@ async function openEditor(id){
   const loc = locate(id);
   $('#eTitle').textContent = loc ? `Page ${loc.pi+1}, photo ${loc.j+1}` : 'Photo';
   $('#editor').classList.add('on');
-  await fontsReady();
+  await Promise.race([fontsReady(), new Promise(r => setTimeout(r, 300))]);
   sizeCanvas(); fit(); render(); updateUI();
 }
 function sizeCanvas(){
@@ -863,7 +880,7 @@ async function saveEditor(){
   if(!E.rec) return;
   E.rec.anns = clone(E.anns);
   try{ E.rec.thumb = (await composite(E.rec, 520)).toDataURL('image/jpeg', 0.75); }catch(e){}
-  try{ await store.put('photos', E.rec); }catch(e){ toast('Couldn’t save this photo. Storage may be full.'); }
+  if(E.rec.blob) try{ await store.put('photos', E.rec); }catch(e){ toast('Couldn’t save this photo. Storage may be full.'); }
 }
 
 /* object creation */
