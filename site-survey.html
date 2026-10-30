@@ -124,6 +124,25 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 .cambar .tb{color:#fff;background:rgba(255,255,255,.14);min-width:96px;justify-content:center}
 .shutter{width:78px;height:78px;border-radius:50%;background:#fff;border:5px solid var(--yellow);box-shadow:0 0 0 3px #000 inset}
 .shutter:active{transform:scale(.94)}
+#camZoom{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:6px;background:rgba(0,0,0,.5);border-radius:999px;padding:4px}
+#camZoom button{min-width:46px;height:40px;border-radius:999px;color:#fff;font-weight:700;font-size:15px;padding:0 8px}
+#camZoom button.on{background:var(--yellow);color:#1A1D20}
+@media (orientation:landscape) and (max-height:620px){
+  #cam{flex-direction:row;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+  .camtop{flex-direction:column;justify-content:flex-start;padding:8px 4px}
+  #camInfo{display:none}
+  .cambar{flex-direction:column-reverse;justify-content:center;gap:18px;padding:8px 14px}
+  .cambar .tb{min-width:0}
+  .cambar > span{display:none}
+  #editor.on{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,36%);grid-template-rows:auto minmax(0,1fr)}
+  .etop{grid-column:1 / -1}
+  #stage{grid-column:1;grid-row:2}
+  .ebottom{grid-column:2;grid-row:2;overflow-y:auto;border-top:0;border-left:1px solid var(--line);display:flex;flex-direction:column}
+  .ebottom .row{flex-wrap:wrap;overflow-x:visible}
+  .ebottom .sw{flex-wrap:wrap;flex:1 1 100%}
+  .ebottom .tools{order:-1}
+  .ebottom .tool{flex:0 0 calc(33.3% - 2px)}
+}
 /* Overlays */
 .ov{position:fixed;inset:0;z-index:40;background:rgba(10,12,14,.55);display:none;align-items:flex-end;justify-content:center}
 .ov.on{display:flex}
@@ -175,7 +194,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
     <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
   </header>
-  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.7</span></p>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.8</span></p>
   <main id="pages"></main>
   <div class="dock">
     <button id="btnGallery" class="btn ghost" aria-label="Add from gallery"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg></button>
@@ -216,7 +235,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 
 <div id="cam" aria-label="Camera">
   <div class="camtop"><button id="camX" class="ib" aria-label="Close camera"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span id="camInfo"></span><button id="camLens" class="tb" style="color:#fff;background:rgba(255,255,255,.14)" hidden>Lens</button></div>
-  <div id="camWrap"><video id="camV" playsinline muted autoplay></video><div id="camFlash"></div></div>
+  <div id="camWrap"><video id="camV" playsinline muted autoplay></video><div id="camFlash"></div><div id="camZoom" hidden></div></div>
   <div class="cambar"><button id="camApp" class="tb">Photo app</button><button id="camShoot" class="shutter" aria-label="Take photo"></button><span style="min-width:96px"></span></div>
 </div>
 <div id="sheet" class="ov"><div class="panel" id="sheetPanel"></div></div>
@@ -237,6 +256,8 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
 <input type="file" id="galIn" accept="image/*" multiple hidden>
 <input type="file" id="logoIn" accept="image/*" hidden>
+<input type="file" id="repIn" accept="image/*" hidden>
+<input type="file" id="projIn" accept=".json,application/json" hidden>
 
 <script>
 (() => {
@@ -259,6 +280,8 @@ const ICON = {
   callout:'<rect x="10" y="3" width="11" height="8"/><path d="M12 11 4 20"/><path d="M4 15v5h5"/>',
   legend:'<path d="M10 6h10M10 12h10M10 18h10"/><circle cx="5" cy="6" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="5" cy="18" r="1.5"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  gallery:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   dl:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
@@ -625,28 +648,52 @@ async function decodeScaled(file, MAX){
   try{ return await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('This file isn’t an image the browser can open.')); i.src = url; }); }
   finally{ setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
-async function ingest(file){
+async function fileToCanvas(file){
   const MAX = 2048, src = await decodeScaled(file, MAX);
   const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
   if(!sw || !sh) throw new Error('This file isn’t an image the browser can open.');
-  const k = Math.min(1, MAX/Math.max(sw, sh)), w = Math.round(sw*k), h = Math.round(sh*k);
-  const c = mkCanvas(w, h); c.getContext('2d').drawImage(src, 0, 0, w, h);
+  const k = Math.min(1, MAX/Math.max(sw, sh)), c = mkCanvas(sw*k, sh*k);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
   if(src.close) src.close();
-  return addCanvasPhoto(c);
+  return c;
 }
-function addCanvasPhoto(c){
+async function ingest(file){ return addCanvasPhoto(await fileToCanvas(file)); }
+function finishPhoto(rec, c){
   const w = c.width, h = c.height;
   const t = mkCanvas(w*480/Math.max(w,h), h*480/Math.max(w,h)); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
-  const rec = {id:uid(), blob:null, w, h, anns:[], thumb:t.toDataURL('image/jpeg', 0.75)};
-  photos.set(rec.id, rec);
+  rec.w = w; rec.h = h; rec.thumb = t.toDataURL('image/jpeg', 0.75); rec.blob = null;
   imgCache.set(rec.id, Promise.resolve(c));
   setTimeout(() => {
     canvasBlob(c, 'image/jpeg', 0.88)
       .then(blob => { rec.blob = blob; return store.put('photos', rec); })
       .catch(() => toast('Couldn’t save this photo. Storage may be full.'));
   }, 400);
-  return rec;
 }
+function addCanvasPhoto(c){
+  const rec = {id:uid(), blob:null, w:c.width, h:c.height, anns:[], thumb:''};
+  photos.set(rec.id, rec); finishPhoto(rec, c); return rec;
+}
+function scaleAnns(anns, fx, fy, fu){
+  return clone(anns || []).map(a => {
+    ['x','x1','x2','ax'].forEach(k => { if(a[k] !== undefined) a[k] *= fx; });
+    ['y','y1','y2','ay'].forEach(k => { if(a[k] !== undefined) a[k] *= fy; });
+    if(a.w !== undefined) a.w *= fx; if(a.h !== undefined) a.h *= fy;
+    if(a.pts) a.pts = a.pts.map(q => [q[0]*fx, q[1]*fy]);
+    if(a.sw) a.sw *= fu; if(a.size){ a.size *= fu; a.maxW *= fu; }
+    return a;
+  });
+}
+function replaceImage(rec, c){
+  rec.anns = scaleAnns(rec.anns, c.width/rec.w, c.height/rec.h, Math.max(c.width, c.height)/Math.max(rec.w, rec.h));
+  finishPhoto(rec, c);
+}
+let replaceId = null;
+function quietDownload(name, blob){
+  const a = document.createElement('a'), u = URL.createObjectURL(blob);
+  a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 8000);
+}
+function backupName(){ const d = new Date(), z = n => String(n).padStart(2, '0'); return `${fileBase()}-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.jpg`; }
 function nextTitle(t){ const m = /^(\D*?)(\d+)/.exec(t || ''); return m ? t.replace(m[0], m[1] + (parseInt(m[2], 10)+1)) : (t || ''); }
 function placePhoto(id, pi){
   let i = (pi != null && S.pages[pi] && S.pages[pi].photos.length < 6) ? pi : -1;
@@ -681,17 +728,35 @@ async function startStream(){
   $('#camLens').hidden = CAM.devices.length < 2;
   $('#camLens').textContent = `Lens ${CAM.idx+1} of ${CAM.devices.length}`;
   $('#camInfo').textContent = st.width ? `${Math.max(st.width, st.height)} × ${Math.min(st.width, st.height)}` : '';
+  setupZoom();
 }
+function setupZoom(){
+  const z = $('#camZoom'), tr = CAM.stream && CAM.stream.getVideoTracks()[0];
+  let cap = {}; try{ cap = tr && tr.getCapabilities ? tr.getCapabilities() : {}; }catch(e){}
+  if(!cap.zoom || !(cap.zoom.max > cap.zoom.min)){ z.hidden = true; return; }
+  const mn = cap.zoom.min, mx = cap.zoom.max;
+  const opts = [...new Set([mn < 1 ? Math.round(mn*10)/10 : null, 1, 2].filter(v => v != null && v >= mn-0.01 && v <= mx+0.01))];
+  if(opts.length < 2){ z.hidden = true; return; }
+  const apply = async v => { try{ await tr.applyConstraints({advanced:[{zoom:v}]}); S.camZoom = v; saveMeta(); }catch(e){} mark(); };
+  const mark = () => { let cur = 1; try{ cur = tr.getSettings().zoom || 1; }catch(e){} [...z.children].forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.z - cur) < 0.05)); };
+  z.innerHTML = opts.map(v => `<button data-z="${v}">${String(v).replace('.', ',')}×</button>`).join('');
+  [...z.children].forEach(b => b.onclick = () => apply(+b.dataset.z));
+  z.hidden = false;
+  if(S.camZoom && opts.includes(S.camZoom)) apply(S.camZoom); else mark();
+}
+function goFull(){ try{ if(!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({navigationUI:'hide'}).catch(() => {}); }catch(e){} }
+function leaveFull(){ try{ if(document.fullscreenElement) document.exitFullscreen().catch(() => {}); }catch(e){} }
 async function openCam(pi){
   pendingPage = pi;
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ $('#camIn').click(); return; }
+  goFull();
   $('#cam').classList.add('on');
   if(CAM.stream && CAM.stream.active) return;
   try{ await startStream(); }
   catch(e){ $('#cam').classList.remove('on'); stopStream(); toast('The camera can’t open here, so the photo app opens instead.'); $('#camIn').click(); }
 }
 function closeCam(keep){ $('#cam').classList.remove('on'); if(!keep) stopStream(); }
-$('#camX').onclick = () => closeCam(false);
+$('#camX').onclick = () => { replaceId = null; closeCam(false); if(!E.rec) leaveFull(); };
 $('#camApp').onclick = () => { closeCam(false); $('#camIn').click(); };
 $('#camLens').onclick = async () => { if(CAM.devices.length < 2) return; CAM.idx = (CAM.idx+1) % CAM.devices.length; try{ await startStream(); }catch(e){ toast('That lens couldn’t be opened.'); } };
 $('#camShoot').onclick = async () => {
@@ -700,9 +765,15 @@ $('#camShoot').onclick = async () => {
   const k = Math.min(1, 2048/Math.max(w0, h0)), c = mkCanvas(w0*k, h0*k);
   c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
   const fl = $('#camFlash'); fl.style.transition = 'none'; fl.style.opacity = '0.8'; requestAnimationFrame(() => { fl.style.transition = 'opacity .25s'; fl.style.opacity = '0'; });
-  const rec = addCanvasPhoto(c); placePhoto(rec.id, pendingPage);
+  let id;
+  if(replaceId && photos.get(replaceId)){ replaceImage(photos.get(replaceId), c); id = replaceId; replaceId = null; }
+  else { const rec = addCanvasPhoto(c); placePhoto(rec.id, pendingPage); id = rec.id; }
+  if(S.saveToPhone){
+    const full = mkCanvas(w0, h0); full.getContext('2d').drawImage(v, 0, 0, w0, h0);
+    setTimeout(() => canvasBlob(full, 'image/jpeg', 0.92).then(b => b && quietDownload(backupName(), b)), 600);
+  }
   closeCam(true);
-  await openEditor(rec.id); renderHome();
+  await openEditor(id); renderHome();
   toast('Photo ready in ' + ((performance.now()-t0)/1000).toFixed(1) + ' s');
 };
 document.addEventListener('visibilitychange', () => { if(document.hidden){ stopStream(); $('#cam').classList.remove('on'); } });
@@ -713,10 +784,20 @@ $('#camIn').onchange = async e => {
   const t0 = performance.now();
   busy(true, 'Loading photo…');
   try{
-    const rec = await ingest(f); placePhoto(rec.id, pendingPage); busy(false);
-    await openEditor(rec.id); renderHome();
+    let id;
+    if(replaceId && photos.get(replaceId)){ replaceImage(photos.get(replaceId), await fileToCanvas(f)); id = replaceId; replaceId = null; }
+    else { const rec = await ingest(f); placePhoto(rec.id, pendingPage); id = rec.id; }
+    if(S.saveToPhone) quietDownload(backupName(), f);
+    busy(false);
+    await openEditor(id); renderHome();
     toast('Photo ready in ' + ((performance.now()-t0)/1000).toFixed(1) + ' s');
   }
+  catch(err){ busy(false); toast(err.message || 'Couldn’t load that photo.'); }
+};
+$('#repIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f || !replaceId) return;
+  busy(true, 'Loading photo…');
+  try{ const id = replaceId; replaceId = null; replaceImage(photos.get(id), await fileToCanvas(f)); busy(false); await openEditor(id); renderHome(); }
   catch(err){ busy(false); toast(err.message || 'Couldn’t load that photo.'); }
 };
 $('#galIn').onchange = async e => {
@@ -804,6 +885,8 @@ function openSettings(){
       <div style="display:flex;gap:8px;align-items:center">${S.project.logo ? `<img src="${S.project.logo}" alt="Current logo"><button class="ib" data-rmlogo aria-label="Remove logo">${svg('x')}</button>` : ''}<button class="btn ghost small" data-logo>${S.project.logo ? 'Change' : 'Upload'}</button></div></div>
     <div class="field"><div><b>Legend on pages</b><br><span style="color:var(--muted);font-size:14px">Lists the symbols used on that page</span></div><button class="switch ${S.project.legend ? 'on' : ''}" data-leg role="switch" aria-checked="${S.project.legend}" aria-label="Legend on pages"></button></div>
     <div class="field"><div><b>Symbols and labels</b><br><span style="color:var(--muted);font-size:14px">${S.presets.length} saved</span></div><button class="btn ghost small" data-pre>Edit</button></div>
+    <div class="field"><div><b>Save photos to phone</b><br><span style="color:var(--muted);font-size:14px">Every photo is also downloaded at full size, so it shows in your gallery (Download album)</span></div><button class="switch ${S.saveToPhone ? 'on' : ''}" data-s2p role="switch" aria-checked="${!!S.saveToPhone}" aria-label="Save photos to phone"></button></div>
+    <div class="field"><div><b>Continue on another device</b><br><span style="color:var(--muted);font-size:14px">Export this project as one file, open the same link on your computer and import it</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn ghost small" data-exp>Export</button><button class="btn ghost small" data-imp>Import</button></div></div>
     <div class="field"><div><b>New project</b><br><span style="color:var(--muted);font-size:14px">Deletes all photos and pages. Symbols and logo stay.</span></div><button class="btn small danger" data-reset>Start over</button></div>`,
     p => {
       p.querySelector('[data-close]').onclick = () => closeSheet('sheet');
@@ -811,6 +894,9 @@ function openSettings(){
       const rl = p.querySelector('[data-rmlogo]'); if(rl) rl.onclick = () => { S.project.logo = null; saveMeta(); renderHome(); openSettings(); };
       p.querySelector('[data-leg]').onclick = () => { S.project.legend = !S.project.legend; saveMeta(); renderHome(); openSettings(); };
       p.querySelector('[data-pre]').onclick = () => openPresets(true);
+      p.querySelector('[data-s2p]').onclick = () => { S.saveToPhone = !S.saveToPhone; saveMeta(); openSettings(); };
+      p.querySelector('[data-exp]').onclick = () => exportProject();
+      p.querySelector('[data-imp]').onclick = () => $('#projIn').click();
       p.querySelector('[data-reset]').onclick = async () => {
         if(!await askConfirm('Start a new project?', 'All photos and pages are deleted from this device. Export your PDF first if you need it.', 'Delete everything')) return;
         for(const id of flatIds()) await store.del('photos', id);
@@ -820,6 +906,52 @@ function openSettings(){
     });
 }
 $('#btnSettings').onclick = openSettings;
+const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
+function dataURLToBlob(d){ const [h, b64] = d.split(','), mime = (/data:([^;]+)/.exec(h) || [])[1] || 'image/jpeg', bin = atob(b64), u = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], {type:mime}); }
+async function exportProject(){
+  const ids = flatIds();
+  if(!ids.length){ toast('There are no photos to export yet.'); return; }
+  busy(true, 'Packing project…');
+  try{
+    const out = {app:'site-survey', format:1, exported:new Date().toISOString(), state:{project:S.project, pages:S.pages, presets:S.presets}, photos:[]};
+    for(let n = 0; n < ids.length; n++){
+      busy(true, `Packing photo ${n+1} of ${ids.length}…`);
+      const r = photos.get(ids[n]); if(!r) continue;
+      let blob = r.blob;
+      if(!blob){ const img = await loadImg(r), c = mkCanvas(r.w, r.h); c.getContext('2d').drawImage(img, 0, 0, r.w, r.h); blob = await canvasBlob(c, 'image/jpeg', 0.88); }
+      out.photos.push({id:r.id, w:r.w, h:r.h, anns:r.anns || [], thumb:r.thumb, jpg:await blobToDataURL(blob)});
+    }
+    const name = fileBase() + '.survey.json', blob = new Blob([JSON.stringify(out)], {type:'application/json'});
+    busy(false);
+    try{
+      const file = new File([blob], name, {type:'application/json'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:name}); return; }
+    }catch(e){ if(e && e.name === 'AbortError') return; }
+    await saveFile(name, blob);
+  }catch(e){ busy(false); toast('Export failed: ' + (e.message || e)); }
+}
+$('#projIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  let data; try{ data = JSON.parse(await f.text()); }catch(err){ toast('That file isn’t a site survey project.'); return; }
+  if(!data || data.app !== 'site-survey' || !data.state || !Array.isArray(data.photos)){ toast('That file isn’t a site survey project.'); return; }
+  if(flatIds().length && !await askConfirm('Replace the current project?', 'The project on this device is replaced by the imported one. Export it first if you still need it.', 'Import')) return;
+  busy(true, 'Importing…');
+  try{
+    for(const id of flatIds()) await store.del('photos', id).catch(() => {});
+    photos.clear(); imgCache.clear();
+    for(let n = 0; n < data.photos.length; n++){
+      busy(true, `Importing photo ${n+1} of ${data.photos.length}…`);
+      const q = data.photos[n], rec = {id:q.id, w:q.w, h:q.h, anns:q.anns || [], thumb:q.thumb || '', blob:dataURLToBlob(q.jpg)};
+      await store.put('photos', rec); photos.set(rec.id, rec);
+    }
+    S.project = {...S.project, ...data.state.project};
+    S.pages = (data.state.pages || []).map(pg => ({...pg, photos:(pg.photos || []).filter(id => photos.has(id))}));
+    if(!S.pages.length) S.pages = [newPage()];
+    if(Array.isArray(data.state.presets) && data.state.presets.length) S.presets = data.state.presets;
+    saveMeta(); busy(false); closeSheet('sheet'); renderHome();
+    toast(`Imported ${data.photos.length} photo${data.photos.length === 1 ? '' : 's'}`);
+  }catch(err){ busy(false); toast('Import failed: ' + (err.message || err)); }
+};
 $('#logoIn').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if(!f) return;
   const u = URL.createObjectURL(f);
@@ -1174,7 +1306,7 @@ $('#tools').onclick = e => {
   const b = e.target.closest('[data-tool]'); if(!b) return;
   const k = b.dataset.tool;
   if(k === 'legend'){ openPresets(false); return; }
-  S.tool = k; S.activePreset = null; saveMeta(); updateUI();
+  setTool(k); S.activePreset = null; saveMeta(); updateUI();
 };
 function currentStyle(){
   const o = selObj();
@@ -1182,9 +1314,22 @@ function currentStyle(){
   if(o && o.t === 'callout') return {color:o.stroke, fill:null, dash:!!o.dash};
   return {color:S.style.color, fill:S.style.fill, dash:S.style.dash};
 }
+const defaultToolStyle = k => ({color:(k === 'callout' || k === 'text') ? '#E3201B' : '#FFD21F', fill:null, dash:false, w:'M', head:true});
+function setTool(k){
+  if(k === S.tool) return;
+  S.toolStyles = S.toolStyles || {};
+  S.toolStyles[S.tool] = clone(S.style);
+  const tgt = S.style.target;
+  S.style = {...defaultToolStyle(k), ...(S.toolStyles[k] || {})}; S.style.target = tgt;
+  S.tool = k;
+}
+function rememberStyle(tool, k, v){ S.toolStyles = S.toolStyles || {}; const ts = S.toolStyles[tool] = {...defaultToolStyle(tool), ...(S.toolStyles[tool] || {})}; ts[k] = v; if(tool === S.tool) S.style[k] = v; }
 function setStyle(k, v){
-  S.style[k] = v; S.activePreset = null;
   const o = selObj();
+  if(k === 'target'){ S.style.target = v; }
+  else if(o) rememberStyle(o.t === 'sign' ? 'select' : o.t, k, v);
+  else { S.style[k] = v; rememberStyle(S.tool, k, v); }
+  S.activePreset = null;
   if(o && !(o.t === 'text' && k !== 'w')){
     snap();
     if(k === 'color') o.stroke = v;
@@ -1225,7 +1370,7 @@ function renderChips(){
   [...$('#chips').children].forEach((b, i) => b.onclick = () => {
     S.text = list[i]; txt.value = S.text; saveMeta();
     const o = selObj(); if(isLabel(o)){ snap(); o.text = S.text; changed(); }
-    if(!isLabel(o) && S.tool !== 'text' && S.tool !== 'callout'){ S.tool = 'callout'; S.activePreset = null; }
+    if(!isLabel(o) && S.tool !== 'text' && S.tool !== 'callout'){ setTool('callout'); S.activePreset = null; }
     addRecent(S.text); updateUI();
   });
 }
@@ -1281,7 +1426,7 @@ document.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
 });
 async function closeEditor(){ await saveEditor(); $('#editor').classList.remove('on'); E.rec = null; renderHome(); }
-$('#eDone').onclick = async () => { await closeEditor(); stopStream(); };
+$('#eDone').onclick = async () => { await closeEditor(); stopStream(); leaveFull(); };
 $('#eNext').onclick = async () => { const loc = locate(E.rec.id); await closeEditor(); openCam(loc ? loc.pi : null); };
 $('#eMore').onclick = () => {
   const ids = flatIds(), idx = ids.indexOf(E.rec.id), prev = idx > 0 ? photos.get(ids[idx-1]) : null;
@@ -1289,23 +1434,18 @@ $('#eMore').onclick = () => {
     <div class="phead"><h2>This photo</h2><button class="ib" data-close aria-label="Close">${svg('x')}</button></div>
     <div class="plist">
       <button class="prow" data-copy ${prev ? '' : 'disabled style="opacity:.4"'}>${svg('copy')}<span class="lbl">Copy annotations from the previous photo</span></button>
+      <button class="prow" data-retake>${svg('camera')}<span class="lbl">Retake photo (annotations stay)</span></button>
+      <button class="prow" data-repl>${svg('gallery')}<span class="lbl">Replace with a photo from the gallery (annotations stay)</span></button>
       <button class="prow" data-fit>${svg('select')}<span class="lbl">Fit photo to screen</span></button>
       <button class="prow" data-del style="color:var(--red)">${svg('trash')}<span class="lbl">Delete this photo</span></button>
     </div>`, p => {
       p.querySelector('[data-close]').onclick = () => closeSheet('sheet');
       p.querySelector('[data-fit]').onclick = () => { fit(); render(); closeSheet('sheet'); };
+      p.querySelector('[data-retake]').onclick = async () => { closeSheet('sheet'); await saveEditor(); replaceId = E.rec.id; const loc = locate(E.rec.id); openCam(loc ? loc.pi : null); };
+      p.querySelector('[data-repl]').onclick = async () => { closeSheet('sheet'); await saveEditor(); replaceId = E.rec.id; $('#repIn').click(); };
       p.querySelector('[data-copy]').onclick = () => {
         if(!prev) return;
-        const fx = E.rec.w/prev.w, fy = E.rec.h/prev.h, fu = Math.max(E.rec.w, E.rec.h)/Math.max(prev.w, prev.h);
-        const copies = clone(prev.anns || []).map(a => {
-          a.id = uid();
-          ['x','x1','x2','ax'].forEach(k => { if(a[k] !== undefined) a[k] *= fx; });
-          ['y','y1','y2','ay'].forEach(k => { if(a[k] !== undefined) a[k] *= fy; });
-          if(a.w !== undefined) a.w *= fx; if(a.h !== undefined) a.h *= fy;
-          if(a.pts) a.pts = a.pts.map(q => [q[0]*fx, q[1]*fy]);
-          a.sw *= fu; if(a.size){ a.size *= fu; a.maxW *= fu; }
-          return a;
-        });
+        const copies = scaleAnns(prev.anns, E.rec.w/prev.w, E.rec.h/prev.h, Math.max(E.rec.w, E.rec.h)/Math.max(prev.w, prev.h)).map(a => { a.id = uid(); return a; });
         snap(); E.anns.push(...copies); changed(); closeSheet('sheet'); toast(`Copied ${copies.length} annotation${copies.length === 1 ? '' : 's'}`);
       };
       p.querySelector('[data-del]').onclick = async () => {
@@ -1314,7 +1454,7 @@ $('#eMore').onclick = () => {
         const id = E.rec.id, loc = locate(id);
         if(loc) S.pages[loc.pi].photos.splice(loc.j, 1);
         photos.delete(id); imgCache.delete(id); await store.del('photos', id).catch(()=>{});
-        saveMeta(); E.rec = null; $('#editor').classList.remove('on'); renderHome();
+        saveMeta(); E.rec = null; $('#editor').classList.remove('on'); leaveFull(); renderHome();
       };
     });
 };
@@ -1325,15 +1465,15 @@ function applyPreset(p){
   if(p.kind === 'sign'){
     const w = E.rec.w*0.46, h = w*0.5;
     const a = {id:uid(), t:'sign', title:p.label, x:E.rec.w-w-E.rec.w*0.03, y:E.rec.h-h-E.rec.h*0.04, w, h, rot:0, strokes:[], preset:null};
-    snap(); E.anns.push(a); E.sel = a.id; S.tool = 'select'; S.activePreset = null; saveMeta(); changed(); return;
+    snap(); E.anns.push(a); E.sel = a.id; setTool('select'); S.activePreset = null; saveMeta(); changed(); return;
   }
   if(p.kind === 'callout' || p.kind === 'text'){
-    S.tool = p.kind; S.text = p.label; S.activePreset = null;
-    if(p.stroke) S.style.color = p.stroke;
+    setTool(p.kind); S.text = p.label; S.activePreset = null;
+    if(p.stroke) rememberStyle(p.kind, 'color', p.stroke);
     if(isLabel(o)){ snap(); o.text = p.label; changed(); }
     addRecent(p.label);
   } else {
-    S.tool = p.kind; S.style.color = p.stroke; S.style.fill = p.fill || null; S.style.dash = !!p.dash; S.activePreset = p.id;
+    setTool(p.kind); rememberStyle(p.kind, 'color', p.stroke); rememberStyle(p.kind, 'fill', p.fill || null); rememberStyle(p.kind, 'dash', !!p.dash); S.activePreset = p.id;
     if(o && o.t === p.kind){ snap(); o.stroke = p.stroke; o.fill = p.fill || null; o.dash = !!p.dash; o.preset = p.id; changed(); }
     else E.sel = null;
   }
