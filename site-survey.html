@@ -169,6 +169,14 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 .dslot .pv img{width:100%;height:100%;object-fit:contain}
 .dsig canvas{width:100%;height:auto;aspect-ratio:600/220;border:1px solid var(--line);border-radius:8px;background:#fff;display:block}
 .dbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ddocs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.ddocs select{flex:1 1 160px;min-width:0;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--raise);color:var(--ink);padding:0 10px;font:inherit;font-weight:600}
+.dpage{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.dth{display:flex;gap:3px;width:150px;flex:none}
+.dth img{width:48px;height:36px;object-fit:cover;border-radius:4px}
+.dth span{font-size:13px;color:var(--muted)}
+.dpt{flex:1 1 140px;min-width:0;display:flex;flex-direction:column;font-size:15px}
+.dpt span{color:var(--muted);font-size:13px}
 .pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
 .pick img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block}
 /* Overlays */
@@ -222,7 +230,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
     <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
   </header>
-  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.10</span></p>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.11</span></p>
   <div class="docbar"><button id="btnDoc" class="btn ghost"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg>Site Survey Document</button></div>
   <main id="pages"></main>
   <div class="dock">
@@ -878,7 +886,6 @@ function renderHome(){
       <div class="pctl">
         <div class="seg" role="group" aria-label="Layout"><button data-layout="grid" class="${pg.layout==='grid'?'on':''}">Grid</button><button data-layout="hero" class="${pg.layout==='hero'?'on':''}">Big first</button></div>
         <div class="seg" role="group" aria-label="Photo size"><button data-fit="fit" class="${pg.fit!=='fill'?'on':''}">Fit</button><button data-fit="fill" class="${pg.fit==='fill'?'on':''}">Fill</button></div>
-        <div class="seg" role="group" aria-label="Document section"><button data-sec="ext" class="${(pg.sec||'ext')==='ext'?'on':''}">Outdoor</button><button data-sec="int" class="${pg.sec==='int'?'on':''}">Indoor</button><button data-sec="none" class="${pg.sec==='none'?'on':''}">Skip</button></div>
         ${n < 6 ? `<button class="btn ghost small" data-add>${svg('plus')}Photo</button>` : ''}
         ${n ? `<button class="btn ghost small" data-pv>Preview</button>` : (S.pages.length > 1 ? `<button class="btn small danger" data-rm>Remove page</button>` : '')}
         <span class="count">${n} of 6</span>
@@ -891,7 +898,6 @@ function renderHome(){
     sec.querySelectorAll('[data-photo]').forEach(b => b.onclick = () => openEditor(b.dataset.photo));
     sec.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => { pg.layout = b.dataset.layout; saveMeta(); renderHome(); });
     sec.querySelectorAll('[data-fit]').forEach(b => b.onclick = () => { pg.fit = b.dataset.fit; saveMeta(); renderHome(); });
-    sec.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => { pg.sec = b.dataset.sec; saveMeta(); renderHome(); });
     const add = sec.querySelector('[data-add]'); if(add) add.onclick = () => openCam(pi);
     const pv = sec.querySelector('[data-pv]'); if(pv) pv.onclick = () => openPreview(pi);
     const rm = sec.querySelector('[data-rm]'); if(rm) rm.onclick = () => { S.pages.splice(pi, 1); saveMeta(); renderHome(); };
@@ -944,8 +950,8 @@ function openSettings(){
         if(!await askConfirm('Start a new project?', 'All photos and pages are deleted from this device. Export your PDF first if you need it.', 'Delete everything')) return;
         for(const id of flatIds()) await store.del('photos', id);
         photos.clear(); imgCache.clear();
-        for(const k of DOC_IMGS) await clearDocImage(k);
-        { const keep = {}; ['exec1Name','exec1Company','exec2Name','exec2Company'].forEach(k => { if(S.doc.f[k]) keep[k] = S.doc.f[k]; }); S.doc.f = keep; S.doc.sig = {c:[], e:[], o:[]}; }
+        for(const k of [...docRecs.keys()]) await clearDocImage(k);
+        { const keep = {}; ['exec1Name','exec1Company','exec2Name','exec2Company'].forEach(k => { if(S.doc.f[k]) keep[k] = S.doc.f[k]; }); const nd = DOC_DEFAULT(); nd.f = keep; nd.lang = S.doc.lang; S.docs = [nd]; setDoc(0); }
         S.pages = [newPage()]; S.project.name = ''; saveMeta(); renderHome(); closeSheet('sheet');
       };
     });
@@ -958,7 +964,7 @@ async function exportProject(){
   if(!ids.length && !docRecs.size && !Object.keys(S.doc.f || {}).length){ toast('There’s nothing to export yet.'); return; }
   busy(true, 'Packing project…');
   try{
-    const out = {app:'site-survey', format:1, exported:new Date().toISOString(), state:{project:S.project, pages:S.pages, presets:S.presets, doc:S.doc}, photos:[], docImgs:[]};
+    const out = {app:'site-survey', format:1, exported:new Date().toISOString(), state:{project:S.project, pages:S.pages, presets:S.presets, docs:S.docs, docIdx:S.docIdx, docLogo:S.docLogo}, photos:[], docImgs:[]};
     for(let n = 0; n < ids.length; n++){
       busy(true, `Packing photo ${n+1} of ${ids.length}…`);
       const r = photos.get(ids[n]); if(!r) continue;
@@ -994,9 +1000,12 @@ $('#projIn').onchange = async e => {
     S.pages = (data.state.pages || []).map(pg => ({...pg, photos:(pg.photos || []).filter(id => photos.has(id))}));
     if(!S.pages.length) S.pages = [newPage()];
     if(Array.isArray(data.state.presets) && data.state.presets.length) S.presets = data.state.presets;
-    if(data.state.doc){ S.doc = {...DOC_DEFAULT(), ...data.state.doc}; S.doc.sig = {c:[], e:[], o:[], ...(data.state.doc.sig || {})}; }
-    for(const k of DOC_IMGS) await clearDocImage(k);
-    for(const q of (data.docImgs || [])){ const rec = {id:q.id, w:q.w, h:q.h, thumb:q.thumb || '', blob:dataURLToBlob(q.jpg), doc:true}; await store.put('photos', rec); docRecs.set(q.id, rec); }
+    for(const k of [...docRecs.keys()]) await clearDocImage(k);
+    if(Array.isArray(data.state.docs) && data.state.docs.length){ S.docs = data.state.docs.map(d => ({...DOC_DEFAULT(), ...d})); S.docIdx = data.state.docIdx || 0; }
+    else if(data.state.doc){ S.docs = [{...DOC_DEFAULT(), ...data.state.doc}]; S.docIdx = 0; }
+    if(data.state.docLogo !== undefined) S.docLogo = data.state.docLogo; else if(data.state.doc && data.state.doc.logo) S.docLogo = data.state.doc.logo;
+    normDocs();
+    for(const q of (data.docImgs || [])){ const m = /^doc:(cover|b1a|b1b)$/.exec(q.id); if(m) q.id = dk(m[1], S.docs[0].id); const rec = {id:q.id, w:q.w, h:q.h, thumb:q.thumb || '', blob:dataURLToBlob(q.jpg), doc:true}; await store.put('photos', rec); docRecs.set(q.id, rec); }
     saveMeta(); busy(false); closeSheet('sheet'); renderHome();
     toast(`Imported ${data.photos.length} photo${data.photos.length === 1 ? '' : 's'}`);
   }catch(err){ busy(false); toast('Import failed: ' + (err.message || err)); }
@@ -1711,10 +1720,11 @@ const DOC_FORM = [
   ['@sigs'],
   ['@annex1'],
 ];
-const DOC_DEFAULT = () => ({lang:'nl', logo:null, f:{exec1Name:'Sergiu Boros', exec1Company:'Cas Vos', exec2Name:'Miguel Campos', exec2Company:'DIGI'}, sig:{c:[], e:[], o:[]}});
+const DOC_DEFAULT = () => ({id:uid(), name:'Route 1', lang:'nl', sel:{}, f:{exec1Name:'Sergiu Boros', exec1Company:'Cas Vos', exec2Name:'Miguel Campos', exec2Company:'DIGI'}, sig:{c:[], e:[], o:[]}});
 const DEFAULT_DOC_LOGO = 'data:image/png;base64,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';
 const docRecs = new Map();
-const DOC_IMGS = ['doc:cover', 'doc:b1a', 'doc:b1b'];
+const DOC_SLOTS = ['cover', 'b1a', 'b1b'];
+const dk = (slot, id) => `doc:${id || S.doc.id}:${slot}`;
 const fv = k => String((S.doc.f || {})[k] || '').trim();
 const DW = 1654, DH = 2339, DL = 100, DR = 1554, DBLUE = '#1F5FBF';
 const DF = s => `${s}px Arial, Helvetica, sans-serif`, DFB = s => `bold ${s}px Arial, Helvetica, sans-serif`, DSER = s => `italic bold ${s}px Cambria, Georgia, "Times New Roman", serif`;
@@ -1745,8 +1755,8 @@ let docLogoImg = null, docLogoSrc = null;
 async function dChrome(n){
   const c = mkCanvas(DW, DH), x = c.getContext('2d');
   x.fillStyle = '#fff'; x.fillRect(0, 0, DW, DH); x.imageSmoothingQuality = 'high';
-  if(S.doc.logo){
-    try{ if(docLogoSrc !== S.doc.logo){ docLogoImg = await loadDataImg(S.doc.logo); docLogoSrc = S.doc.logo; } const k = Math.min(380/docLogoImg.width, 96/docLogoImg.height); x.drawImage(docLogoImg, 70, 28, docLogoImg.width*k, docLogoImg.height*k); }catch(e){}
+  if(S.docLogo){
+    try{ if(docLogoSrc !== S.docLogo){ docLogoImg = await loadDataImg(S.docLogo); docLogoSrc = S.docLogo; } const k = Math.min(380/docLogoImg.width, 96/docLogoImg.height); x.drawImage(docLogoImg, 70, 28, docLogoImg.width*k, docLogoImg.height*k); }catch(e){}
   }
   dText(x, String(n), DL, DH-62, {font:DF(20), color:'#555'});
   dText(x, tr('owner'), DR, DH-80, {font:DF(20), color:'#555', align:'right'});
@@ -1767,7 +1777,7 @@ async function dPage1(n){
   row('clientName', fv('clientName')); row('address', fv('clientAddress')); row('postcode', fv('clientPostcode')); row('city', fv('clientCity')); r += RH*0.6;
   row('contact', fv('clientContact')); row('phone', fv('clientPhone')); row('email', fv('clientEmail'));
   const pTop = y+h2+26, h3 = 46+RH*23.4+14, b3 = DH-130-h3, ph = b3-26-pTop;
-  const cov = await docCanvas('doc:cover');
+  const cov = await docCanvas(dk('cover'));
   if(cov) dCover(x, cov, DL, pTop, W, ph);
   else { x.save(); x.setLineDash([12, 10]); x.strokeStyle = '#bbb'; x.lineWidth = 2; x.strokeRect(DL, pTop, W, ph); x.restore(); }
   y = b3; dBox(x, DL, y, W, h3, tr('sec_location')); r = y+46+RH-6;
@@ -1849,7 +1859,7 @@ async function dPage4(n){
   dBox(x, DL, top, W, bot-top);
   dText(x, tr('annex1'), DW/2, top+66, {font:DSER(40), align:'center'}); dLine(x, DL+6, top+94, DR-6, top+94);
   dText(x, tr('traceRoute'), DW/2, top+128, {font:DFB(22), align:'center'}); dLine(x, DL+6, top+146, DR-6, top+146);
-  const imgs = [await docCanvas('doc:b1a'), await docCanvas('doc:b1b')].filter(Boolean);
+  const imgs = [await docCanvas(dk('b1a')), await docCanvas(dk('b1b'))].filter(Boolean);
   const A = {x:DL+40, y:top+176, w:W-80, h:bot-top-176-40};
   if(imgs.length === 1) dContain(x, imgs[0], A);
   else if(imgs.length === 2){ const hh = (A.h-30)/2; dContain(x, imgs[0], {x:A.x, y:A.y, w:A.w, h:hh}); dContain(x, imgs[1], {x:A.x, y:A.y+hh+30, w:A.w, h:hh}); }
@@ -1901,7 +1911,7 @@ async function dLegend(n){
   dLine(x, cx, top, cx, top+LEG.length*rh, 1.6);
   return c;
 }
-const pageSec = pg => pg.sec || 'ext';
+const pageSec = pg => (S.doc.sel || {})[pg.id] || (S.docs.length > 1 ? 'none' : (pg.sec || 'ext'));
 function docJobs(){
   const jobs = [dPage1, dPage2, dPage3, dPage4];
   S.pages.filter(p => pageSec(p) === 'ext' && p.photos.length).forEach(pg => jobs.push(n => dTrace(n, pg, 'annex2')));
@@ -1921,7 +1931,7 @@ async function exportDocPDF(){
       pdf.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 297); c.width = c.height = 1;
     }
     const blob = pdf.output('blob'); busy(false);
-    await saveFile(`${fileBase()}-site-survey-${S.doc.lang}.pdf`, blob);
+    await saveFile(`${fileBase()}-${String(S.doc.name || 'document').replace(/[^\p{L}\p{N}\- _]+/gu, '').trim().replace(/\s+/g, '-')}-site-survey-${S.doc.lang}.pdf`, blob);
   }catch(e){ busy(false); toast('Document export failed: ' + (e.message || e)); }
 }
 async function previewDoc(){
@@ -1995,14 +2005,22 @@ function renderDocForm(){
     return `<div class="dfield"><label for="df-${k}">${lab}</label>${type === 'area' ? `<textarea id="df-${k}" data-k="${k}" rows="3">${v}</textarea>` : `<input id="df-${k}" data-k="${k}" value="${v}" autocomplete="off">`}</div>`;
   };
   let html = `<div class="dcard"><h3>Document</h3>
+    <div class="ddocs"><select id="dSel" aria-label="Choose document">${S.docs.map((d, i) => `<option value="${i}" ${i === S.docIdx ? 'selected' : ''}>${esc(d.name || 'Document '+(i+1))}</option>`).join('')}</select>
+    <button class="btn ghost small" data-dnew>${svg('plus')}New</button><button class="btn ghost small" data-dren>Rename</button>${S.docs.length > 1 ? '<button class="btn small danger" data-ddel>Delete</button>' : ''}</div>
     <div class="dslots">
-      <div class="dslot"><div class="dl">Logo on every page (for example Eurofiber)</div><div class="pv logo">${S.doc.logo ? `<img src="${S.doc.logo}" alt="">` : '<span>No logo</span>'}</div>
-      <div class="dbtns"><button class="btn ghost small" data-logo>Upload</button>${S.doc.logo ? '<button class="btn small danger" data-nologo>Remove</button>' : ''}</div></div>
+      <div class="dslot"><div class="dl">Logo on every page (for example Eurofiber)</div><div class="pv logo">${S.docLogo ? `<img src="${S.docLogo}" alt="">` : '<span>No logo</span>'}</div>
+      <div class="dbtns"><button class="btn ghost small" data-logo>Upload</button>${S.docLogo ? '<button class="btn small danger" data-nologo>Remove</button>' : ''}</div></div>
     </div>
-    <p class="dnote">Trace pages from the main screen: <b>${ext}</b> outdoor (${esc(tr('annex2'))}), <b>${int}</b> indoor (${esc(tr('annex3'))}). Set Outdoor, Indoor or Skip under each page.</p></div>`;
+    </div>
+    <div class="dcard"><h3>Pages in this document</h3>
+    <p class="dnote" style="margin:0 0 10px">Outdoor pages go into ${esc(tr('annex2'))} (<b>${ext}</b>), indoor pages into ${esc(tr('annex3'))} (<b>${int}</b>). Skip leaves a page out of this document only; the photos stay in the project.</p>
+    ${S.pages.map((pg, i) => { const v = pageSec(pg), th = pg.photos.slice(0, 3).map(id => photos.get(id)).filter(Boolean).map(r => `<img src="${r.thumb}" alt="">`).join('');
+      return `<div class="dpage"><div class="dth">${th || '<span>Empty</span>'}</div><div class="dpt"><b>${esc(pg.title || 'Page '+(i+1))}</b><span>Page ${i+1}, ${pg.photos.length} photo${pg.photos.length === 1 ? '' : 's'}</span></div>
+      <div class="seg" data-pg="${pg.id}"><button data-v="ext" class="${v === 'ext' ? 'on' : ''}">Outdoor</button><button data-v="int" class="${v === 'int' ? 'on' : ''}">Indoor</button><button data-v="none" class="${v === 'none' ? 'on' : ''}">Skip</button></div></div>`; }).join('')}
+    </div>`;
   DOC_FORM.forEach(([sec, fields]) => {
-    if(sec === '@cover') html += `<div class="dcard"><h3>Cover photo</h3><div class="dslots">${slotHtml('doc:cover', 'Shown on page 1')}</div></div>`;
-    else if(sec === '@annex1') html += `<div class="dcard"><h3>${esc(tr('annex1'))} – ${esc(tr('traceRoute'))}</h3><div class="dslots">${slotHtml('doc:b1a', 'Photo 1')}${slotHtml('doc:b1b', 'Photo 2')}</div></div>`;
+    if(sec === '@cover') html += `<div class="dcard"><h3>Cover photo</h3><div class="dslots">${slotHtml(dk('cover'), 'Shown on page 1')}</div></div>`;
+    else if(sec === '@annex1') html += `<div class="dcard"><h3>${esc(tr('annex1'))} – ${esc(tr('traceRoute'))}</h3><div class="dslots">${slotHtml(dk('b1a'), 'Photo 1')}${slotHtml(dk('b1b'), 'Photo 2')}</div></div>`;
     else if(sec === '@sigs') html += `<div class="dcard"><h3>Signatures</h3><div class="dsigs">${[['sigC','c'],['sigE','e'],['sigO','o']].map(([k, s]) => `<div class="dsig"><div class="dl">${esc(tr(k))}</div><canvas data-sigc="${s}"></canvas><div class="dbtns"><button class="btn ghost small" data-sign="${s}" data-t="${esc(tr(k))}">Sign</button>${(S.doc.sig[s] || []).length ? `<button class="btn small danger" data-unsign="${s}">Clear</button>` : ''}</div></div>`).join('')}</div></div>`;
     else html += `<div class="dcard"><h3>${esc(tr(sec))}</h3>${fields.map(field).join('')}</div>`;
   });
@@ -2015,7 +2033,34 @@ function renderDocForm(){
   form.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { const key = b.dataset.pick; pickSurveyPhoto(async c => { await setDocImage(key, c); renderDocForm(); }); });
   form.querySelectorAll('[data-clr]').forEach(b => b.onclick = async () => { await clearDocImage(b.dataset.clr); renderDocForm(); });
   form.querySelector('[data-logo]').onclick = () => $('#docLogoIn').click();
-  const nl = form.querySelector('[data-nologo]'); if(nl) nl.onclick = () => { S.doc.logo = null; saveMeta(); renderDocForm(); };
+  const nl = form.querySelector('[data-nologo]'); if(nl) nl.onclick = () => { S.docLogo = null; saveMeta(); renderDocForm(); };
+  form.querySelectorAll('[data-pg]').forEach(sg => sg.onclick = e => { const b = e.target.closest('[data-v]'); if(!b) return; S.doc.sel = S.doc.sel || {}; S.doc.sel[sg.dataset.pg] = b.dataset.v; saveMeta(); keepScroll(renderDocForm); });
+  form.querySelector('#dSel').onchange = e => { setDoc(+e.target.value); saveMeta(); renderDocForm(); $('#docv .dbody').scrollTop = 0; };
+  form.querySelector('[data-dnew]').onclick = newDoc;
+  form.querySelector('[data-dren]').onclick = async () => { const t = await askText('Document name', S.doc.name || '', 'Save'); if(t){ S.doc.name = t; saveMeta(); renderDocForm(); } };
+  const dd = form.querySelector('[data-ddel]'); if(dd) dd.onclick = async () => {
+    if(!await askConfirm(`Delete “${S.doc.name}”?`, 'Only this document is deleted. Your photos and the other documents stay.', 'Delete')) return;
+    for(const sl of DOC_SLOTS) await clearDocImage(dk(sl));
+    S.docs.splice(S.docIdx, 1); setDoc(0); saveMeta(); renderDocForm();
+  };
+  $('#docv .etitle').textContent = S.doc.name || 'Site Survey Document';
+}
+function setDoc(i){ S.docIdx = clamp(i, 0, S.docs.length-1); S.doc = S.docs[S.docIdx]; }
+function keepScroll(fn){ const b = $('#docv .dbody'), sc = b.scrollTop; fn(); b.scrollTop = sc; }
+function normDocs(){
+  if(!Array.isArray(S.docs) || !S.docs.length) S.docs = [DOC_DEFAULT()];
+  S.docs.forEach(d => { d.id = d.id || uid(); d.name = d.name || 'Route 1'; d.f = d.f || {}; d.sel = d.sel || {}; d.sig = {c:[], e:[], o:[], ...(d.sig || {})}; delete d.logo; delete d.logoInit; });
+  setDoc(S.docIdx || 0);
+}
+async function newDoc(){
+  const t = await askText('Name of the new document', `Route ${S.docs.length+1}`, 'Create'); if(!t) return;
+  S.docs.forEach(d => { d.sel = d.sel || {}; S.pages.forEach(pg => { if(!d.sel[pg.id]) d.sel[pg.id] = S.docs.length > 1 ? 'none' : (pg.sec || 'ext'); }); });
+  const nd = DOC_DEFAULT(); nd.name = t; nd.lang = S.doc.lang; nd.f = clone(S.doc.f); S.pages.forEach(pg => nd.sel[pg.id] = 'none');
+  const cov = docRecs.get(dk('cover'));
+  S.docs.push(nd);
+  if(cov && cov.blob){ const rec = {...cov, id:dk('cover', nd.id)}; docRecs.set(rec.id, rec); await store.put('photos', rec).catch(() => {}); }
+  setDoc(S.docs.length-1); saveMeta(); renderDocForm(); $('#docv .dbody').scrollTop = 0;
+  toast('New document created. Choose its pages under “Pages in this document”.');
 }
 function openDoc(){
   if(!S.doc.f.date){ const d = new Date(), z = n => String(n).padStart(2, '0'); S.doc.f.date = `${z(d.getDate())}.${z(d.getMonth()+1)}.${d.getFullYear()}`; saveMeta(); }
@@ -2035,7 +2080,7 @@ $('#docImgIn').onchange = async e => {
 $('#docLogoIn').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if(!f) return;
   const u = URL.createObjectURL(f);
-  try{ const i = await loadDataImg(u), k = Math.min(1, 900/Math.max(i.width, i.height)), c = mkCanvas(i.width*k, i.height*k); c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); S.doc.logo = c.toDataURL('image/png'); saveMeta(); renderDocForm(); }
+  try{ const i = await loadDataImg(u), k = Math.min(1, 900/Math.max(i.width, i.height)), c = mkCanvas(i.width*k, i.height*k); c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); S.docLogo = c.toDataURL('image/png'); saveMeta(); renderDocForm(); }
   catch(err){ toast('That logo file couldn’t be opened.'); }
   finally{ URL.revokeObjectURL(u); }
 };
@@ -2051,9 +2096,15 @@ $('#docLogoIn').onchange = async e => {
   S.seenPresets = S.seenPresets || [];
   NEW_PRESETS.forEach(id => { if(!S.seenPresets.includes(id)){ if(!S.presets.some(p => p.id === id)) S.presets.push(clone(DEFAULT_PRESETS.find(p => p.id === id))); S.seenPresets.push(id); } });
   if(S.tool === 'penarrow') S.tool = 'pen';
-  S.doc = {...DOC_DEFAULT(), ...(S.doc || {})}; S.doc.f = S.doc.f || {};
-  if(!S.doc.logoInit){ if(!S.doc.logo) S.doc.logo = DEFAULT_DOC_LOGO; S.doc.logoInit = true; } S.doc.sig = {c:[], e:[], o:[], ...(S.doc.sig || {})};
-  for(const k of DOC_IMGS){ try{ const r = await store.get('photos', k); if(r) docRecs.set(k, r); }catch(e){} }
+  if(!Array.isArray(S.docs) || !S.docs.length){
+    const old = S.doc || {};
+    if(S.docLogo === undefined) S.docLogo = old.logoInit ? (old.logo || null) : (old.logo || DEFAULT_DOC_LOGO);
+    S.docs = [{...DOC_DEFAULT(), ...old}]; S.docIdx = 0; normDocs();
+    for(const sl of DOC_SLOTS){ try{ const r = await store.get('photos', 'doc:'+sl); if(r){ r.id = dk(sl, S.docs[0].id); await store.put('photos', r); await store.del('photos', 'doc:'+sl); } }catch(e){} }
+  }
+  if(S.docLogo === undefined) S.docLogo = DEFAULT_DOC_LOGO;
+  normDocs();
+  for(const d of S.docs) for(const sl of DOC_SLOTS){ const k = dk(sl, d.id); try{ const r = await store.get('photos', k); if(r) docRecs.set(k, r); }catch(e){} }
   saveMeta();
   for(const pg of S.pages){
     const keep = [];
