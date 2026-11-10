@@ -230,7 +230,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
     <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
   </header>
-  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.11</span></p>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.12</span></p>
   <div class="docbar"><button id="btnDoc" class="btn ghost"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg>Site Survey Document</button></div>
   <main id="pages"></main>
   <div class="dock">
@@ -250,7 +250,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
     <button id="eMore" class="ib" aria-label="More"><svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
     <button id="eNext" class="tb primary"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Next</button>
   </div>
-  <div id="stage"><canvas id="cv"></canvas><div id="hint" hidden><span id="hintTxt"></span><button id="hintSign" class="hsign" hidden>Sign</button><button id="hintX" aria-label="Stop using this symbol"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+  <div id="stage"><canvas id="cv"></canvas><div id="hint" hidden><span id="hintTxt"></span><button id="hintSign" class="hsign" hidden>Sign</button><button id="hintDone" class="hsign" hidden>Finish</button><button id="hintX" aria-label="Stop using this symbol"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
   <div class="ebottom">
     <div id="textRow" class="row textrow">
       <input id="txt" placeholder="Label text, stays until you change it" autocomplete="off" enterkeyhint="done">
@@ -320,6 +320,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ICON = {
   select:'<path d="M5 3l14 8-6 2-2 6z"/>',
   pen:'<path d="M3 17c3-6 6 4 9-2s5-6 9-4"/>',
+  curve:'<path d="M4 18C8 6 14 20 20 7"/><circle cx="4" cy="18" r="1.7"/><circle cx="12" cy="13" r="1.7"/><circle cx="20" cy="7" r="1.7"/>',
   penarrow:'<path d="M3 19c2-6 6-1 8-6s4-6 9-7"/><path d="M15 5.5 20 6l-1.5 4.8"/>',
   arrow:'<path d="M4 20 19 5"/><path d="M10 5h9v9"/>',
   line:'<path d="M4 20 20 4"/>',
@@ -549,6 +550,20 @@ function drawAnn(ctx, a){
         arrowHead(ctx, from[0], from[1], end[0], end[1], hs, a.stroke);
       }
     }
+  } else if(a.t === 'curve'){
+    const p = a.pts;
+    if(p.length){
+      ctx.lineWidth = a.sw; ctx.strokeStyle = a.stroke; ctx.lineCap = a.dash ? 'butt' : 'round';
+      ctx.setLineDash(a.dash ? [a.sw*2.6, a.sw*1.9] : []);
+      ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]);
+      if(p.length === 1) ctx.lineTo(p[0][0]+.1, p[0][1]); else curveSegs(p).forEach(([, b, c, d]) => ctx.bezierCurveTo(b[0], b[1], c[0], c[1], d[0], d[1]));
+      ctx.stroke();
+      if(a.head && p.length > 1){
+        const sg = curveSegs(p), L = sg[sg.length-1]; let from = L[2];
+        if(Math.hypot(L[3][0]-from[0], L[3][1]-from[1]) < 1) from = L[0];
+        arrowHead(ctx, from[0], from[1], L[3][0], L[3][1], a.sw*4.2, a.stroke);
+      }
+    }
   } else if(a.t === 'text' || a.t === 'callout'){
     const b = labelBox(a);
     if(a.t === 'callout'){
@@ -568,6 +583,20 @@ function signGeom(a){
   mctx.font = '600 '+fs+'px Barlow, Arial, sans-serif';
   const lines = wrap(mctx, a.title || '', r.w-pad*2).slice(0, 3), th = pad*0.8 + lines.length*fs*1.2 + pad*0.5;
   return {pad, fs, lines, ix:pad, iy:th, iw:Math.max(1, r.w-pad*2), ih:Math.max(1, r.h-th-pad)};
+}
+function curveSegs(p){
+  const n = p.length, segs = [];
+  for(let i = 0; i < n-1; i++){
+    const p0 = p[Math.max(0, i-1)], p1 = p[i], p2 = p[i+1], p3 = p[Math.min(n-1, i+2)];
+    segs.push([p1, [p1[0]+(p2[0]-p0[0])/6, p1[1]+(p2[1]-p0[1])/6], [p2[0]-(p3[0]-p1[0])/6, p2[1]-(p3[1]-p1[1])/6], p2]);
+  }
+  return segs;
+}
+function curveSamples(p){
+  if(p.length < 2) return p.slice();
+  const out = [p[0]];
+  curveSegs(p).forEach(([a, b, c, d]) => { for(let t = 1; t <= 12; t++){ const u = t/12, m = 1-u; out.push([m*m*m*a[0]+3*m*m*u*b[0]+3*m*u*u*c[0]+u*u*u*d[0], m*m*m*a[1]+3*m*m*u*b[1]+3*m*u*u*c[1]+u*u*u*d[1]]); } });
+  return out;
 }
 function drawSymbol(ctx, p, x, y, w, h){
   const sw = Math.max(2, h/9);
@@ -936,7 +965,7 @@ function openSettings(){
     <div class="field"><div><b>Symbols and labels</b><br><span style="color:var(--muted);font-size:14px">${S.presets.length} saved</span></div><button class="btn ghost small" data-pre>Edit</button></div>
     <div class="field"><div><b>Save photos to phone</b><br><span style="color:var(--muted);font-size:14px">Every photo is also downloaded at full size, so it shows in your gallery (Download album)</span></div><button class="switch ${S.saveToPhone ? 'on' : ''}" data-s2p role="switch" aria-checked="${!!S.saveToPhone}" aria-label="Save photos to phone"></button></div>
     <div class="field"><div><b>Continue on another device</b><br><span style="color:var(--muted);font-size:14px">Export this project as one file, open the same link on your computer and import it</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn ghost small" data-exp>Export</button><button class="btn ghost small" data-imp>Import</button></div></div>
-    <div class="field"><div><b>New project</b><br><span style="color:var(--muted);font-size:14px">Deletes all photos and pages. Symbols and logo stay.</span></div><button class="btn small danger" data-reset>Start over</button></div>`,
+    <div class="field"><div><b>New project</b><br><span style="color:var(--muted);font-size:14px">Deletes all photos, pages and documents. Symbols and logo stay.</span></div><button class="btn small danger" data-reset>Start over</button></div>`,
     p => {
       p.querySelector('[data-close]').onclick = () => closeSheet('sheet');
       p.querySelector('[data-logo]').onclick = () => $('#logoIn').click();
@@ -951,7 +980,7 @@ function openSettings(){
         for(const id of flatIds()) await store.del('photos', id);
         photos.clear(); imgCache.clear();
         for(const k of [...docRecs.keys()]) await clearDocImage(k);
-        { const keep = {}; ['exec1Name','exec1Company','exec2Name','exec2Company'].forEach(k => { if(S.doc.f[k]) keep[k] = S.doc.f[k]; }); const nd = DOC_DEFAULT(); nd.f = keep; nd.lang = S.doc.lang; S.docs = [nd]; setDoc(0); }
+        { const nd = DOC_DEFAULT(); nd.lang = S.doc.lang; S.docs = [nd]; setDoc(0); }
         S.pages = [newPage()]; S.project.name = ''; saveMeta(); renderHome(); closeSheet('sheet');
       };
     });
@@ -1027,7 +1056,7 @@ const isLabel = a => a && (a.t === 'text' || a.t === 'callout');
 
 async function openEditor(id){
   const rec = photos.get(id); if(!rec) return;
-  E.rec = rec; E.anns = clone(rec.anns || []); E.sel = null; E.undo = []; E.redo = []; E.draft = null; E.mode = null;
+  E.rec = rec; E.anns = clone(rec.anns || []); E.sel = null; E.undo = []; E.redo = []; E.draft = null; E.mode = null; E.multi = null; E.mq = null; E.hover = null;
   try{ E.img = await loadImg(rec); }catch(e){ toast('This photo couldn’t be opened.'); return; }
   const loc = locate(id);
   $('#eTitle').textContent = loc ? `Page ${loc.pi+1}, photo ${loc.j+1}` : 'Photo';
@@ -1048,7 +1077,7 @@ window.addEventListener('resize', () => { if(E.rec && $('#editor').classList.con
 function bbox(a){
   if(isBoxT(a.t)) return norm(a);
   if(a.t === 'line' || a.t === 'arrow') return {x:Math.min(a.x1,a.x2), y:Math.min(a.y1,a.y2), w:Math.abs(a.x2-a.x1), h:Math.abs(a.y2-a.y1)};
-  if(a.t === 'pen'){ const xs = a.pts.map(p => p[0]), ys = a.pts.map(p => p[1]); const x = Math.min(...xs), y = Math.min(...ys); return {x, y, w:Math.max(...xs)-x, h:Math.max(...ys)-y}; }
+  if(a.t === 'pen' || a.t === 'curve'){ const sp = a.t === 'curve' ? curveSamples(a.pts) : a.pts, xs = sp.map(p => p[0]), ys = sp.map(p => p[1]); const x = Math.min(...xs), y = Math.min(...ys); return {x, y, w:Math.max(...xs)-x, h:Math.max(...ys)-y}; }
   const b = labelBox(a);
   if(a.t === 'callout'){ const x = Math.min(b.x, a.ax), y = Math.min(b.y, a.ay); return {x, y, w:Math.max(b.x+b.w, a.ax)-x, h:Math.max(b.y+b.h, a.ay)-y}; }
   return b;
@@ -1061,7 +1090,7 @@ function handles(a, s){
     else { hs.push({...R(fr.w/2, fr.h/2), k:'size'}); if(a.t === 'callout') hs.push({x:a.ax, y:a.ay, k:'tip'}); }
     hs.push({...R(0, -fr.h/2-off), k:'rot', base:R(0, -fr.h/2)});
   } else if(a.t === 'line' || a.t === 'arrow'){ hs.push({x:a.x1, y:a.y1, k:'p1'}, {x:a.x2, y:a.y2, k:'p2'}); }
-  else if(a.t === 'pen'){ const b = bbox(a); hs.push({x:b.x+b.w/2, y:b.y-off, k:'rot', base:{x:b.x+b.w/2, y:b.y}}); }
+  else if(a.t === 'pen' || a.t === 'curve'){ if(a.t === 'curve') a.pts.forEach((q, i) => hs.push({x:q[0], y:q[1], k:'c'+i})); const b = bbox(a); hs.push({x:b.x+b.w/2, y:b.y-off, k:'rot', base:{x:b.x+b.w/2, y:b.y}}); }
   return hs;
 }
 function segDist(p, x1, y1, x2, y2){
@@ -1082,6 +1111,7 @@ function hitLocal(a, p, tol){
     return (a.fill || m < tol*1.5) ? d <= 1 + tol/m : Math.abs(d-1)*m <= tol;
   }
   if(a.t === 'line' || a.t === 'arrow') return segDist(p, a.x1, a.y1, a.x2, a.y2) <= tol + a.sw/2;
+  if(a.t === 'curve'){ const sp = curveSamples(a.pts); for(let i = 1; i < sp.length; i++) if(segDist(p, sp[i-1][0], sp[i-1][1], sp[i][0], sp[i][1]) <= tol + a.sw/2) return true; return sp.length === 1 && Math.hypot(p.x-sp[0][0], p.y-sp[0][1]) <= tol; }
   if(a.t === 'pen'){ for(let i = 1; i < a.pts.length; i++) if(segDist(p, a.pts[i-1][0], a.pts[i-1][1], a.pts[i][0], a.pts[i][1]) <= tol + a.sw/2) return true; return a.pts.length === 1 && Math.hypot(p.x-a.pts[0][0], p.y-a.pts[0][1]) <= tol; }
   const b = labelBox(a);
   return p.x >= b.x-tol && p.x <= b.x+b.w+tol && p.y >= b.y-tol && p.y <= b.y+b.h+tol;
@@ -1095,7 +1125,7 @@ function hit(a, p, tol){
 function hitArea(a, p, tol){
   const fr = boxFrame(a);
   if(fr){ const lp = rotPt(p.x, p.y, fr.cx, fr.cy, -fr.rot); if(Math.abs(lp.x-fr.cx) <= fr.w/2+tol && Math.abs(lp.y-fr.cy) <= fr.h/2+tol) return true; }
-  else { const b = bbox(a); if(p.x >= b.x-tol && p.x <= b.x+b.w+tol && p.y >= b.y-tol && p.y <= b.y+b.h+tol) return true; }
+  else return hit(a, p, tol*1.5);
   return hit(a, p, tol);
 }
 function topHit(p, tol){ for(let i = E.anns.length-1; i >= 0; i--) if(hit(E.anns[i], p, tol)) return E.anns[i]; return null; }
@@ -1108,7 +1138,7 @@ function render(){
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(E.img, 0, 0, E.rec.w, E.rec.h);
   E.anns.forEach(a => drawAnn(ctx, a));
-  if(E.draft) drawAnn(ctx, E.draft);
+  if(E.draft){ if(E.draft.t === 'curve' && E.hover) drawAnn(ctx, {...E.draft, pts:[...E.draft.pts, [E.hover.x, E.hover.y]]}); else drawAnn(ctx, E.draft); }
   const o = selObj();
   if(o){
     ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -1127,11 +1157,26 @@ function render(){
       ctx.fillStyle = h.k === 'size' ? '#FFD21F' : h.k === 'rot' ? '#2AA7FF' : '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1A1D20'; ctx.stroke();
     });
   }
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  if(E.draft && E.draft.t === 'curve') E.draft.pts.forEach((q, i, arr) => { ctx.beginPath(); ctx.arc(q[0]*s+ox, q[1]*s+oy, i === arr.length-1 ? 9 : 7, 0, Math.PI*2); ctx.fillStyle = i === arr.length-1 ? '#FFD21F' : '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1A1D20'; ctx.stroke(); });
+  const box = (b, col) => { ctx.save(); ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeStyle = col; ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 3; ctx.strokeRect(b.x*s+ox-6, b.y*s+oy-6, b.w*s+12, b.h*s+12); ctx.restore(); };
+  if(E.multi){ E.multi.forEach(id => { const a = E.anns.find(z => z.id === id); if(a) box(bbox(a), '#fff'); }); const g = groupBox(); if(g) box({x:g.x-8/s, y:g.y-8/s, w:g.w+16/s, h:g.h+16/s}, '#FFD21F'); }
+  if(E.mq){ const x1 = Math.min(E.mq.x1, E.mq.x2), y1 = Math.min(E.mq.y1, E.mq.y2); ctx.save(); ctx.fillStyle = 'rgba(255,210,31,.12)'; ctx.fillRect(x1*s+ox, y1*s+oy, Math.abs(E.mq.x2-E.mq.x1)*s, Math.abs(E.mq.y2-E.mq.y1)*s); ctx.restore(); box({x:x1+6/s, y:y1+6/s, w:Math.abs(E.mq.x2-E.mq.x1)-12/s, h:Math.abs(E.mq.y2-E.mq.y1)-12/s}, '#FFD21F'); }
+}
+function groupBox(){
+  const bs = (E.multi || []).map(id => E.anns.find(a => a.id === id)).filter(Boolean).map(bbox); if(!bs.length) return null;
+  const x = Math.min(...bs.map(b => b.x)), y = Math.min(...bs.map(b => b.y));
+  return {x, y, w:Math.max(...bs.map(b => b.x+b.w))-x, h:Math.max(...bs.map(b => b.y+b.h))-y};
+}
+function finishCurve(){
+  const a = E.draft; E.draft = null; E.hover = null;
+  if(a && a.t === 'curve' && a.pts.length >= 2){ snap(); E.anns.push(a); E.sel = a.id; }
+  changed();
 }
 
 /* undo */
 function snap(){ E.undo.push(JSON.stringify(E.anns)); if(E.undo.length > 80) E.undo.shift(); E.redo = []; }
-function undo(){ if(!E.undo.length) return; E.redo.push(JSON.stringify(E.anns)); E.anns = JSON.parse(E.undo.pop()); if(!selObj()) E.sel = null; changed(); }
+function undo(){ if(E.draft && E.draft.t === 'curve'){ E.draft.pts.pop(); if(!E.draft.pts.length){ E.draft = null; E.hover = null; } render(); updateUI(); return; } if(!E.undo.length) return; E.redo.push(JSON.stringify(E.anns)); E.anns = JSON.parse(E.undo.pop()); if(!selObj()) E.sel = null; changed(); }
 function redo(){ if(!E.redo.length) return; E.undo.push(JSON.stringify(E.anns)); E.anns = JSON.parse(E.redo.pop()); if(!selObj()) E.sel = null; changed(); }
 let saveTimer = 0;
 function changed(){ render(); updateUI(); clearTimeout(saveTimer); saveTimer = setTimeout(saveEditor, 700); }
@@ -1149,6 +1194,7 @@ function newObj(t, p){
   const st = S.style, sw = U()*W_MULT[st.w], base = {id:uid(), preset:S.activePreset || null};
   if(t === 'rect' || t === 'ellipse') return {...base, t, x:p.x, y:p.y, w:0, h:0, stroke:st.color, fill:st.fill, dash:st.dash, sw};
   if(t === 'arrow' || t === 'line') return {...base, t, x1:p.x, y1:p.y, x2:p.x, y2:p.y, stroke:st.color, dash:st.dash, sw};
+  if(t === 'curve') return {...base, t:'curve', head:st.head !== false, pts:[[p.x, p.y]], stroke:st.color, dash:st.dash, sw};
   if(t === 'pen' || t === 'penarrow') return {...base, t:'pen', head:st.head !== false, pts:[[p.x, p.y]], stroke:st.color, dash:st.dash, sw};
   return {...base, preset:null, t, x:p.x, y:p.y, ax:p.x, ay:p.y, text:S.text || 'Label', size:U()*9*S.textMult, maxW:E.rec.w*0.5, stroke:st.color, dash:false, sw:U()*1.35};
 }
@@ -1166,7 +1212,7 @@ function objCenter(o){
 function xf(p, m0, m, f, da){ const q = rotPt(p.x, p.y, m0.x, m0.y, da); return {x:m.x+(q.x-m0.x)*f, y:m.y+(q.y-m0.y)*f}; }
 function transformFrom(a, o, m0, m, f, da, keepTip){
   if(o.t === 'line' || o.t === 'arrow'){ const p1 = xf({x:o.x1, y:o.y1}, m0, m, f, da), p2 = xf({x:o.x2, y:o.y2}, m0, m, f, da); a.x1 = p1.x; a.y1 = p1.y; a.x2 = p2.x; a.y2 = p2.y; return; }
-  if(o.t === 'pen'){ a.pts = o.pts.map(q => { const r = xf({x:q[0], y:q[1]}, m0, m, f, da); return [r.x, r.y]; }); return; }
+  if(o.t === 'pen' || o.t === 'curve'){ a.pts = o.pts.map(q => { const r = xf({x:q[0], y:q[1]}, m0, m, f, da); return [r.x, r.y]; }); return; }
   const fr = boxFrame(o), c = xf({x:fr.cx, y:fr.cy}, m0, m, f, da), w = fr.w*f, h = fr.h*f;
   a.rot = (o.rot || 0) + da;
   if(isBoxT(o.t)){ a.x = c.x-w/2; a.y = c.y-h/2; a.w = w; a.h = h; return; }
@@ -1179,6 +1225,7 @@ function applyHandle(a, o, k, p){
     if(boxFrame(o)) da = snapAng((o.rot || 0)+da) - (o.rot || 0);
     transformFrom(a, o, c, c, 1, da, true); return;
   }
+  if(/^c\d+$/.test(k)){ a.pts[+k.slice(1)] = [p.x, p.y]; return; }
   if(k === 'p1'){ a.x1 = p.x; a.y1 = p.y; return; }
   if(k === 'p2'){ a.x2 = p.x; a.y2 = p.y; return; }
   if(k === 'tip'){ a.ax = p.x; a.ay = p.y; return; }
@@ -1209,10 +1256,11 @@ stage.addEventListener('pointerdown', e => {
   E.ptrs.set(e.pointerId, cpt(e));
   if(E.ptrs.size === 2){ startPinch(); return; }
   if(E.ptrs.size > 2 || E.mode === 'idle') return;
-  startSingle(cpt(e));
+  startSingle(cpt(e), e);
 });
+stage.addEventListener('contextmenu', e => e.preventDefault());
 stage.addEventListener('pointermove', e => {
-  if(!E.ptrs.has(e.pointerId)) return;
+  if(!E.ptrs.has(e.pointerId)){ if(E.draft && E.draft.t === 'curve' && e.pointerType === 'mouse'){ E.hover = toImg(cpt(e)); render(); } return; }
   E.ptrs.set(e.pointerId, cpt(e));
   if(E.mode === 'pinch' && E.ptrs.size >= 2) movePinch();
   else if(E.mode === 'otrans'){ if(E.ptrs.size >= 2) moveObjGesture(); }
@@ -1242,13 +1290,15 @@ function startPinch(){
   if(so && (E.mode === 'move' || E.mode === 'handle' || near)){
     if(E.mode === 'move'){ if(!(E.down && E.down.moved)) snap(); }
     else if(E.mode !== 'handle') snap();
-    E.draft = null;
+    if(E.draft && E.draft.t !== 'curve') E.draft = null;
+    E.multi = null; E.mq = null;
     finalize(so);
     E.orig = clone(so); E.down = null; E.mode = 'otrans';
     E.g0 = {m:{x:(A.x+B.x)/2, y:(A.y+B.y)/2}, d:Math.hypot(B.x-A.x, B.y-A.y) || 1, ang:Math.atan2(B.y-A.y, B.x-A.x)};
     render(); return;
   }
   if(E.mode === 'draw') E.draft = null;
+  if(E.mode === 'marquee' || E.mode === 'gmove') E.mq = null;
   if(E.mode === 'handle' && E.down && !E.down.moved) E.undo.pop();
   E.down = null; E.mode = 'pinch';
   E.pinch = {d:Math.hypot(a.x-b.x, a.y-b.y) || 1, m:{x:(a.x+b.x)/2, y:(a.y+b.y)/2}, ...E.view};
@@ -1269,9 +1319,15 @@ function movePinch(){
   E.view = {s, ox:m.x-(P.m.x-P.ox)*(s/P.s), oy:m.y-(P.m.y-P.oy)*(s/P.s)};
   render();
 }
-function startSingle(sp){
+function startSingle(sp, ev){
   const p = toImg(sp), tol = 14/E.view.s, sel = selObj();
-  E.down = {sp, p, moved:false, hadSel:!!sel};
+  E.down = {sp, p, moved:false, hadSel:!!sel || !!E.multi}; E.lastP = null;
+  if(E.draft && E.draft.t === 'curve'){ E.mode = 'curvept'; return; }
+  if(E.multi){
+    const g = groupBox();
+    if(g && p.x >= g.x-tol && p.x <= g.x+g.w+tol && p.y >= g.y-tol && p.y <= g.y+g.h+tol){ E.mode = 'gmove'; E.origs = E.multi.map(id => E.anns.find(a => a.id === id)).filter(Boolean).map(clone); return; }
+    E.multi = null;
+  }
   if(sel){
     for(const h of handles(sel, E.view.s)){
       if(Math.hypot(p.x-h.x, p.y-h.y) <= 24/E.view.s){
@@ -1283,8 +1339,14 @@ function startSingle(sp){
   }
   const o = (sel && hitArea(sel, p, tol*2)) ? sel : topHit(p, tol);
   if(o){ E.sel = o.id; E.mode = 'move'; E.orig = clone(o); render(); updateUI(); return; }
-  if(S.tool === 'select'){ E.sel = null; E.mode = 'pan'; E.panO = {ox:E.view.ox, oy:E.view.oy}; render(); updateUI(); return; }
+  if(S.tool === 'select'){
+    E.sel = null;
+    if(ev && (ev.button === 1 || ev.button === 2 || ev.shiftKey)){ E.mode = 'pan'; E.panO = {ox:E.view.ox, oy:E.view.oy}; }
+    else { E.mode = 'marquee'; E.mq = null; }
+    render(); updateUI(); return;
+  }
   if(S.tool === 'text'){ E.mode = 'place'; return; }
+  if(S.tool === 'curve'){ E.sel = null; E.mode = 'curvept'; render(); updateUI(); return; }
   E.draft = newObj(S.tool, p); E.mode = 'draw';
   if(S.tool === 'callout') centerBoxAt(E.draft, p);
 }
@@ -1292,11 +1354,15 @@ function moveSingle(sp){
   const d = E.down, p = toImg(sp);
   if(!d.moved && Math.hypot(sp.x-d.sp.x, sp.y-d.sp.y) > 6){
     d.moved = true;
-    if(E.mode === 'move') snap();
+    if(E.mode === 'move' || E.mode === 'gmove') snap();
     if(E.mode === 'draw' && E.sel){ E.sel = null; updateUI(); }
   }
   if(!d.moved) return;
+  E.lastP = p;
   if(E.mode === 'pan'){ E.view.ox = E.panO.ox + sp.x-d.sp.x; E.view.oy = E.panO.oy + sp.y-d.sp.y; }
+  else if(E.mode === 'marquee'){ E.mq = {x1:d.p.x, y1:d.p.y, x2:p.x, y2:p.y}; }
+  else if(E.mode === 'gmove'){ E.origs.forEach(o => { const a = E.anns.find(z => z.id === o.id); if(a) translate(a, o, p.x-d.p.x, p.y-d.p.y); }); }
+  else if(E.mode === 'curvept'){ E.hover = p; }
   else if(E.mode === 'move'){ const o = selObj(); if(o) translate(o, E.orig, p.x-d.p.x, p.y-d.p.y); }
   else if(E.mode === 'handle'){ const o = selObj(); if(o) applyHandle(o, E.orig, E.hk, p); }
   else if(E.mode === 'draw'){
@@ -1323,6 +1389,25 @@ async function endSingle(){
   if(mode === 'handle'){ if(!d.moved) E.undo.pop(); else finalize(selObj()); changed(); return; }
   if(mode === 'move'){ if(!d.moved){ const o = selObj(); if(o) tapObj(o); render(); updateUI(); return; } changed(); return; }
   if(mode === 'pan'){ render(); return; }
+  if(mode === 'marquee'){
+    const q = E.mq; E.mq = null;
+    if(!d.moved || !q){ E.multi = null; render(); updateUI(); return; }
+    const x1 = Math.min(q.x1, q.x2), x2 = Math.max(q.x1, q.x2), y1 = Math.min(q.y1, q.y2), y2 = Math.max(q.y1, q.y2);
+    const ids = E.anns.filter(a => { const b = bbox(a), cx = b.x+b.w/2, cy = b.y+b.h/2; return cx >= x1 && cx <= x2 && cy >= y1 && cy <= y2; }).map(a => a.id);
+    E.multi = ids.length > 1 ? ids : null; E.sel = ids.length === 1 ? ids[0] : null;
+    render(); updateUI(); return;
+  }
+  if(mode === 'gmove'){
+    if(!d.moved){ const o = topHit(d.p, tol); E.multi = null; E.sel = o ? o.id : null; render(); updateUI(); return; }
+    changed(); return;
+  }
+  if(mode === 'curvept'){
+    const pt = E.lastP || d.p; E.lastP = null;
+    if(!E.draft){ E.draft = newObj('curve', pt); E.hover = null; render(); updateUI(); return; }
+    const pts = E.draft.pts, last = pts[pts.length-1];
+    if(Math.hypot(pt.x-last[0], pt.y-last[1]) < 16/E.view.s){ finishCurve(); return; }
+    pts.push([pt.x, pt.y]); render(); updateUI(); return;
+  }
   if(mode === 'place'){
     if(d.hadSel){ E.sel = null; render(); updateUI(); return; }
     let t = S.text;
@@ -1358,12 +1443,14 @@ async function endSingle(){
 }
 
 /* toolbar */
-const TOOLS = [['select','Move'],['arrow','Arrow'],['line','Line'],['pen','Draw'],['rect','Box'],['ellipse','Circle'],['callout','Label'],['text','Text'],['legend','Legend']];
+const TOOLS = [['select','Move'],['arrow','Arrow'],['line','Line'],['pen','Draw'],['curve','Curve'],['rect','Box'],['ellipse','Circle'],['callout','Label'],['text','Text'],['legend','Legend']];
 $('#tools').innerHTML = TOOLS.map(([k, l]) => `<button class="tool" data-tool="${k}">${svg(k)}<span>${l}</span></button>`).join('');
 $('#tools').onclick = e => {
   const b = e.target.closest('[data-tool]'); if(!b) return;
   const k = b.dataset.tool;
   if(k === 'legend'){ openPresets(false); return; }
+  if(E.draft && E.draft.t === 'curve') finishCurve();
+  E.multi = null;
   setTool(k); S.activePreset = null; saveMeta(); updateUI();
 };
 function currentStyle(){
@@ -1383,6 +1470,17 @@ function setTool(k){
 }
 function rememberStyle(tool, k, v){ S.toolStyles = S.toolStyles || {}; const ts = S.toolStyles[tool] = {...defaultToolStyle(tool), ...(S.toolStyles[tool] || {})}; ts[k] = v; if(tool === S.tool) S.style[k] = v; }
 function setStyle(k, v){
+  if(E.multi && k !== 'target'){
+    snap();
+    E.multi.forEach(id => { const o = E.anns.find(a => a.id === id); if(!o) return;
+      if(k === 'color' && o.t !== 'text') o.stroke = v;
+      if(k === 'fill' && (o.t === 'rect' || o.t === 'ellipse')) o.fill = v;
+      if(k === 'dash' && !isLabel(o)) o.dash = v;
+      if(k === 'head' && (o.t === 'pen' || o.t === 'curve')) o.head = v;
+      if(k === 'w' && !isLabel(o) && o.t !== 'sign') o.sw = U()*W_MULT[v];
+      o.preset = null; });
+    changed(); return;
+  }
   const o = selObj();
   if(k === 'target'){ S.style.target = v; }
   else if(o) rememberStyle(o.t === 'sign' ? 'select' : o.t, k, v);
@@ -1393,7 +1491,7 @@ function setStyle(k, v){
     if(k === 'color') o.stroke = v;
     if(k === 'fill' && (o.t === 'rect' || o.t === 'ellipse')) o.fill = v;
     if(k === 'dash' && o.t !== 'text') o.dash = v;
-    if(k === 'head' && o.t === 'pen') o.head = v;
+    if(k === 'head' && (o.t === 'pen' || o.t === 'curve')) o.head = v;
     if(k === 'w' && !isLabel(o)) o.sw = U()*W_MULT[v];
     o.preset = null; changed();
   }
@@ -1406,7 +1504,7 @@ $('#swatches').onclick = e => {
   if(S.style.target === 'fill') setStyle('fill', c); else if(c) setStyle('color', c);
 };
 $('#dashBtn').onclick = () => setStyle('dash', !currentStyle().dash);
-$('#tipBtn').onclick = () => { const o = selObj(); setStyle('head', !(o && o.t === 'pen' ? !!o.head : S.style.head !== false)); };
+$('#tipBtn').onclick = () => { const o = selObj(); setStyle('head', !(o && (o.t === 'pen' || o.t === 'curve') ? !!o.head : S.style.head !== false)); };
 $('#widthSeg').onclick = e => { const b = e.target.closest('[data-w]'); if(b) setStyle('w', b.dataset.w); };
 const txt = $('#txt');
 txt.addEventListener('focus', () => { const o = selObj(); E.txtSnap = isLabel(o); if(E.txtSnap) snap(); });
@@ -1443,19 +1541,21 @@ function updateUI(){
   $('#swatches').innerHTML = (tgt === 'fill' ? ['none', ...COLORS] : COLORS).map(c =>
     `<button class="swatch ${c === 'none' ? 'none' : ''} ${(c === 'none' ? cur == null : (cur || '').toUpperCase() === c) ? 'on' : ''}" data-c="${c}" ${c !== 'none' ? `style="background:${c}"` : ''} aria-label="${c === 'none' ? 'No fill' : c}"></button>`).join('');
   $('#dashBtn').classList.toggle('on', !!st.dash);
-  const penCtx = (o && o.t === 'pen') || (!o && S.tool === 'pen');
-  $('#tipBtn').hidden = !penCtx; $('#tipBtn').classList.toggle('on', o && o.t === 'pen' ? !!o.head : S.style.head !== false);
+  const isPen = a => a && (a.t === 'pen' || a.t === 'curve'), penCtx = isPen(o) || (!o && (S.tool === 'pen' || S.tool === 'curve'));
+  $('#tipBtn').hidden = !penCtx; $('#tipBtn').classList.toggle('on', isPen(o) ? !!o.head : S.style.head !== false);
   let w = S.style.w;
   if(o && !isLabel(o)){ const m = o.sw/U(); w = Object.keys(W_MULT).reduce((b, k) => Math.abs(W_MULT[k]-m) < Math.abs(W_MULT[b]-m) ? k : b, 'M'); }
   document.querySelectorAll('#widthSeg button').forEach(b => b.classList.toggle('on', b.dataset.w === w));
-  $('#eUndo').disabled = !E.undo.length; $('#eRedo').disabled = !E.redo.length; $('#eDel').disabled = !o;
+  const drafting = E.draft && E.draft.t === 'curve';
+  $('#eUndo').disabled = !E.undo.length && !drafting; $('#eRedo').disabled = !E.redo.length; $('#eDel').disabled = !o && !E.multi;
   const pr = S.presets.find(p => p.id === S.activePreset);
-  const hints = {select:'Tap to select. Drag empty space to pan, pinch to zoom.', callout:'Drag from the spot to where the label should sit.', text:'Tap to place the text.', pen:'Draw a route. It ends with an arrow tip; switch the tip off next to the dashed button.'};
+  const hints = {select:'Tap to select. Drag over empty space to select several objects. Two fingers or Shift+drag to move the photo.', curve:'Tap points one by one; the line curves through them.', callout:'Drag from the spot to where the label should sit.', text:'Tap to place the text.', pen:'Draw a route. It ends with an arrow tip; switch the tip off next to the dashed button.'};
   const h = pr ? 'Symbol: ' + pr.label : (o ? (isLabel(o) ? 'Drag to move. Two fingers or the blue dot to turn. Double-tap to edit.' : 'Drag to move. Two fingers to turn and resize. Tap empty space to deselect.') : (hints[S.tool] || ''));
-  const hs = o && o.t === 'sign' ? 'Drag to move. Tap Sign to let the owner sign.' : h;
-  $('#hint').hidden = !hs; $('#hintTxt').textContent = hs; $('#hintX').hidden = !pr || !!(o && o.t === 'sign'); $('#hintSign').hidden = !(o && o.t === 'sign');
+  const hs = drafting ? 'Tap the next point. Tap the last point again, or Finish, to end.' : E.multi ? `${E.multi.length} objects selected. Drag to move them together.` : (o && o.t === 'sign' ? 'Drag to move. Tap Sign to let the owner sign.' : h);
+  $('#hint').hidden = !hs; $('#hintTxt').textContent = hs; $('#hintX').hidden = !pr || !!(o && o.t === 'sign'); $('#hintSign').hidden = !(o && o.t === 'sign'); $('#hintDone').hidden = !drafting;
 }
 $('#hintX').onclick = () => { S.activePreset = null; saveMeta(); updateUI(); };
+$('#hintDone').onclick = () => finishCurve();
 $('#hintSign').onclick = () => { const o = selObj(); if(o && o.t === 'sign') openSignPad(o); };
 function openSignPad(o){
   const g = signGeom(o), ov = $('#sigpad'), c = $('#sigCv'), x = c.getContext('2d');
@@ -1477,13 +1577,16 @@ function openSignPad(o){
   ov.classList.add('on'); draw();
 }
 $('#eUndo').onclick = undo; $('#eRedo').onclick = redo;
-$('#eDel').onclick = () => { const o = selObj(); if(!o) return; snap(); E.anns = E.anns.filter(a => a !== o); E.sel = null; changed(); };
+$('#eDel').onclick = () => { if(E.multi){ snap(); E.anns = E.anns.filter(a => !E.multi.includes(a.id)); E.multi = null; changed(); return; } const o = selObj(); if(!o) return; snap(); E.anns = E.anns.filter(a => a !== o); E.sel = null; changed(); };
 document.addEventListener('keydown', e => {
   if(!$('#editor').classList.contains('on') || /INPUT|TEXTAREA/.test(document.activeElement.tagName) || $('#dlg').classList.contains('on')) return;
-  if((e.key === 'Delete' || e.key === 'Backspace') && selObj()){ e.preventDefault(); $('#eDel').click(); }
+  if((e.key === 'Delete' || e.key === 'Backspace') && (selObj() || E.multi)){ e.preventDefault(); $('#eDel').click(); }
+  if(e.key === 'Enter' && E.draft && E.draft.t === 'curve'){ e.preventDefault(); finishCurve(); }
+  if(e.key === 'Escape'){ if(E.draft && E.draft.t === 'curve'){ E.draft = null; E.hover = null; } E.sel = null; E.multi = null; render(); updateUI(); }
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a'){ e.preventDefault(); E.sel = null; E.multi = E.anns.length > 1 ? E.anns.map(a => a.id) : null; if(E.anns.length === 1) E.sel = E.anns[0].id; render(); updateUI(); }
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
 });
-async function closeEditor(){ await saveEditor(); $('#editor').classList.remove('on'); E.rec = null; renderHome(); }
+async function closeEditor(){ if(E.draft && E.draft.t === 'curve') finishCurve(); E.multi = null; await saveEditor(); $('#editor').classList.remove('on'); E.rec = null; renderHome(); }
 $('#eDone').onclick = async () => { await closeEditor(); stopStream(); leaveFull(); };
 $('#eNext').onclick = async () => { const loc = locate(E.rec.id); await closeEditor(); openCam(loc ? loc.pi : null); };
 $('#eMore').onclick = () => {
@@ -1650,6 +1753,8 @@ const DT = {
   f_trayT:['Kabelgoot – type','Chemin de câbles – type','Cable tray – type'], f_trayL:['Kabelgoot – lengte','Chemin de câbles – longueur','Cable tray – length'],
   f_notes:['Notities (vrije ruimte)','Notes (espace libre)','Notes (free space)'],
 };
+[3, 4, 5].forEach(i => { DT['f_e'+i+'n'] = [`Uitgevoerd door ${i} – naam`, `Réalisé par ${i} – nom`, `Carried out by ${i} – name`]; DT['f_e'+i+'c'] = [`Uitgevoerd door ${i} – bedrijf`, `Réalisé par ${i} – société`, `Carried out by ${i} – company`]; });
+DT.f_rack = ['Foto rack (naast afgesproken hoogte)', 'Photo du rack (à côté de la hauteur convenue)', 'Rack photo (next to agreed height)'];
 const LI = () => DLANG[(S.doc && S.doc.lang) || 'nl'] || 0;
 const tr = k => (DT[k] || [k, k, k])[LI()];
 const colon = t => t + (S.doc.lang === 'fr' ? ' :' : ':');
@@ -1709,21 +1814,24 @@ const LEG = [
   ['budi',['BUDI lasbox','Boîtier d’épissure BUDI','BUDI splice box']],
 ];
 const DOC_FORM = [
-  ['sec_general', [['projectName'],['projectNrEF'],['projectNrC'],['date'],['exec1Name','f_e1n'],['exec1Company','f_e1c'],['exec2Name','f_e2n'],['exec2Company','f_e2c']]],
+  ['sec_general', [['projectName'],['projectNrEF'],['projectNrC'],['date'],['exec1Name','f_e1n'],['exec1Company','f_e1c'],['exec2Name','f_e2n'],['exec2Company','f_e2c'],['exec3Name','f_e3n'],['exec3Company','f_e3c'],['exec4Name','f_e4n'],['exec4Company','f_e4c'],['exec5Name','f_e5n'],['exec5Company','f_e5c']]],
   ['sec_client', [['clientName'],['clientAddress','address'],['clientPostcode','postcode'],['clientCity','city'],['clientContact','contact'],['clientPhone','phone'],['clientEmail','email']]],
   ['@cover'],
   ['sec_location', [['buildingName'],['buildingType'],['locAddress','address'],['locPostcode','postcode'],['locCity','city'],['manager'],['managerPhone','phone'],['managerEmail','email'],['isOwner'],['#','f_owner'],['ownerName','name'],['ownerAddress','address'],['ownerPostcode','postcode'],['ownerCity','city'],['ownerContact','contact'],['ownerPhone','phoneShort'],['houseRules'],['#','announce'],['annName','name'],['annPhone','phoneShort'],['annEmail','email'],['annDays','daysBefore']]],
   ['sec_network', [['connType'],['#','sub_hh'],['r1Path'],['r2Path'],['r1Len'],['r2Len'],['nEntries'],['existEntries'],['r1EntryType'],['r2EntryType'],['r1Room'],['r2Room'],['#','sub_pe'],['p1Path'],['p2Path'],['p1Len'],['p2Len'],['fireStops'],['pvcType','f_pvcT'],['pvcLen','f_pvcL'],['trayType','f_trayT'],['trayLen','f_trayL']]],
-  ['sec_start', [['#','sub_rack'],['rackRoom'],['rackName'],['peType'],['agreedHeight'],['units'],['startNotes','f_notes','area'],['#','sub_cpe'],['cpe230'],['cpeAir'],['cpeDust'],['cpeEtsi']]],
+  ['sec_start', [['#','sub_rack'],['rackRoom'],['rackName'],['peType'],['agreedHeight'],['@slot','rack','f_rack'],['units'],['startNotes','f_notes','area'],['#','sub_cpe'],['cpe230'],['cpeAir'],['cpeDust'],['cpeEtsi']]],
   ['sec_remarks', [['remarks','sec_remarks','area']]],
   ['vg_title', [['actions','actions','area'],['received','received','area']]],
   ['@sigs'],
   ['@annex1'],
 ];
-const DOC_DEFAULT = () => ({id:uid(), name:'Route 1', lang:'nl', sel:{}, f:{exec1Name:'Sergiu Boros', exec1Company:'Cas Vos', exec2Name:'Miguel Campos', exec2Company:'DIGI'}, sig:{c:[], e:[], o:[]}});
+const DOC_PREFILL = {exec1Name:'Sergiu Boros', connType:'Ethernet', r1Path:'Zie Bijlage 2', r2Path:'/', r1Len:'+/-', r2Len:'/', nEntries:'1', existEntries:'Te bepalen', r1EntryType:'DB2', r2EntryType:'/', r1Room:'Parking -1', r2Room:'/',
+  p1Path:'Zie Bijlage 3', p2Path:'/', p1Len:'+/-', p2Len:'/', fireStops:'/', pvcType:'/', pvcLen:'/', trayType:'/', trayLen:'/',
+  rackRoom:'Serverruimte', rackName:'Rack 1', peType:'ODF + CPE', agreedHeight:'—>', units:'2U', cpe230:'ja', cpeAir:'ja', cpeDust:'ja', cpeEtsi:'ja'};
+const DOC_DEFAULT = () => ({id:uid(), name:'Route 1', lang:'nl', sel:{}, f:{...DOC_PREFILL}, sig:{c:[], e:[], o:[]}});
 const DEFAULT_DOC_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPMAAABWCAIAAACVRTc1AAAhXElEQVR42u1995Mcx5Xme5lZpn1Pjx8AAww8SAokiKUkUoaSKK3M8nYVuxenu/9Gf86auL1VUAqSMjRykCiSS0+YAcYB42fal0vz7ofq7vGD7kEDFKl6AQQaQE9WVeZXL79nE4kIEknkCycsmYJEEmQnkkiC7EQS+UxFJFNwZNHGSKVDKb1QRkpzxFzazWdSmExNguzPXIwhAtLaGCJDRIY0kTHGEBFBpJQ2xhAdKxU5ZwBQaXizKxv1IGyGUmujjQFDUmtlDEMUnI8O5P7u3KQtEpWRIPuhApdIadMMgroX+mEUKhUprQwBkdTGAGiljTHKGGMIgLQxShuljYqhDaCM+cr5kzGsN2rN3350y48UZwwAEAAQEAAA439RWs8sb7qWePrsZIKtBNkPRcp1795mZa3SKDd9pTURISIREQEBbcNk6w+Mf8efES2OMd8YGyicnRgGAKnUWzdmpTK24AddFBFtwRbWKk9OHeOcJ/BKkN1PqfvBBzP3lsv1UCrBGSIyxBZssWcOPDlcivXx3Gq55gfx58NFGRMpnUqQnSC7j7K8Wbt2fSaUijM8RLl2I0TkWGK4kG2NXK4bgm5GRMREYSfI7qdUmv61GzORUoL3wZtJBELwXNoFAC+MyvWmYF2p/JQt+nIDiTyIfKEW4MPZe2HbvOuL5FyHIcYMpx6E2AWZUYYGshmGiesvQXafZGmjsrRZ66Oy1ETD+RYV2aw1uwQrEQ21CUwiCbL7IHPrFWP6md1liIq5dPx5rdbsBthElLKtwWw6AVaC7P6IH8nNWoOxvnEAAnAtnnYsADDGNIIo9l/f92VIOXYxm0qAlSC7P1L3g6oX9JHdkqGM46RsGwBqXhBFssu3ZiifxoRkJ8jul2xUG93o1J6oSDrlOJYAgJofBlJ1g1dtaGwgn6AqQXbfZLlSZ31VlIhQSDnx54Yfmu7qMxxLFDMJFUmQ3SeRSjeDCPuqsxGwlMvEn8v1JgLQTtlPYZtSNh0TmEQ+c/kiRGpqXqC07i+5RYaltmNkvFSoeD4QAUDMSYjAC6U2ZruT0RDl0i5PYjQJsvslFc/3QvmAsfQd5iOBJZjVzkQ9PT40MVhouRTb748fyndvL5QbXsdsFYwN5RN/X8JG+ifVhof9Jtmh0rWm3/kX17bSrp127bTT+jWYzzx36bRtiZiZEBFjbCifxGgSnd0n0casVBp9jKi3eTZcuzFz8fhoPp0yxkC7RgERh/IZx7IAIOPao4Xs/FqZI8bmY8Z1EkglyO6PhJFsdJfR0dtehuiH8u1bC47gsVY2bd08Usx//fEzMcNOObYm4gCGaLSYTTzZCRvpmxgA6q8rexu4Lc60IQNg4noERMbYSqUeKdXZMRAAAbShfDrx9yXI7p+kHHsgk9LGPKTxEQG3vTlE4NqiYzVGUjFkBMAQs6mEiiTI7p9wxIvHRxHx0bS6IqKsa3ecfV4YIbYSobIJyU6Q3V8ZKWRTjv1o2rgZItdpIZsAvFAigCGyE2QnyO67+JFUSj8a242I0rYV0xMplWq/Tq4lkhhNguw+SzOIlNaPyC+BYFui/UZFRrf4fda1EjD9VckXIQZZD0KpzX1jkERAZCj+ADGbiLGKgMAAu0nvFoyl25khzSBqNXswVEgcIwmy+y6xGXcgoAGUNobItXjGcS0hhOCCtcrLTdzhSelAqroXAMAh9WZEwJDF5QgA4IXSEMV+koSKJMjuv4SRPKjmgAg4w1PjQ8eHimnXcS0uOGe4++txh75GEE4vri2slQ8mNoSMpZ2WzvaiSBvDOOcMP5pbUspcODGaQCpBdn9EG1Np+Acjmy5PHTs7MXL4IJwxbjPXtkq5TCDVSrm2b7ieADhjbltnGwJtjGAcEb0wWipXE2QnFmTfRGnTjOS+UUhtTCmfOT0+3MN0II4Wc/rgSmHBmdXukjM5VBwfyFscjaGc6/R0oUQSnX1fx0hoiPa1/QzBqZGBXosjxSHtnQiyzlZhQSmXef5L5/xQKmNcy0o5iXskQXYfHSN+iET7NuxjDMdKhd43AX3QfxmiXNrZ9Rrk0kfPCzdKBfWqX96UgU9KASK3HSuVctJZO5vljoOYGKZ/q8iueb4h4nuQTUQ517F77693SApK3HShPy/k8mJ55lZl7k5YXQdE6rApRASDBChEavjY4NS54UtfYkftElieu705cwuICscmh84/niD78ySx640fYD8GkeoEVroUqc1B/CVO93vAGw6qlbtv/b48N62jkFsWCht2WwkcAMhQY3GuNnOLiMa+dGXHC2aM9DxgzE6lDrmf5sband/8XAU+IG7c+Ijb7sCpM3/ryF4u16YX1z4Xx+lt1j2xnx8DEZth9LuPpwvZdE8pJdWmf1Adg+Ds0/nltWpj77XOjA2Od8F8akt3b//qpahR57YtHHf7GC10U+s3IDJhAVBtaWE7suuri7PX3vBqZYYsPzpx+hvfs9z9S9S8lUXZbIpMFoh04Nfvzv6tIzuS6k/XZ/xQfi7y6Nle7/R2cAdR3Q/7NiCA0ubeemUvgal7wXAhKw6lDX55c/rVn6kw4I7T2VWM0aAVkWmFRDEGNQNkgKj90ElvNTDRSt341X81N1a47QDA0voSs+xz3/rhgZdEjAuTW8m4f+NsRGkdKR33VP+8Px5jyPrbrQH3CVIiolRaaXM4suevvS79ZgxKACCjASA9OFyYPJMqFLltE5GWkfT9qOlFjbryau7AyPiVZ7ZU/spS2Kxzp0VCuO001pZ1FPEuWkEgY3/ryE67ztnxodtLG8nhvl0KZ3ju2LBrW4fykHv1xTlm2R1YC8ed/Pp3S1PnutcgWkkis6V+EcgYY0zShr5bnn3lzIkLx0dNcnB1l5PI2X0b6NQXZnQYcTcVkxBEPPPCi/ljvR3UlCsNc3CU8RkXAGCUcjI5y3WTJegW2YiYlGH3UYiosbGK7WxELaORx57qFdYA4ORyk1/+1txbrynpA2I6N3Li6teS6e0B2Yn0V4yS/uYGMhHDnAmrePKIbopjV54unjrZWF5AYRePT9mpJHs2QfZnqLO1Vs06ch7rb+FY6aGRI4+WGRjMDAwms3of50EyBZ/BpDMhnITsJcj+wmlwQEgSQv4a2YgxxkhJxiDnXIi/BUepklJLCUScc+44D+zp/wziJnvfpbjU7aG/x8boGC2Mcct6ZGjpFtlho9ZcXaotLzWX7+rAIzIExJABMJFK5Y5N5cfH00NjVuqwZqQ6ihori0ZFTn4gVRo62rQarZsrS5HfsFPZzOj44dlCRKTCSIe+jgIdBioMlYxUEMgg0IFvZ3Ojjz950D1Lz6sv3a3em2suLmgtiXSMD0RuZbKZsRPZkdH00KiTy/f2GMiMUiuffCAchzF+RIgjCmGlSsN2NtfV1mw767c+ri7cIUWAQESAAMYAY0DAOLeKg6nSYLpYcosDbmGAWw+U+BXWY7QsNpfndRi20AIMEEU6l52YzI9NZEbGLLcH85eItJQq8E3oqzBUYaBkpKJQ+YEKfOG4o48/6eTyPSDb21hf/uCd6sLtsFZBYSHr5NUhxKHbRr2xsriolFsaLp25NHb5qrWfwU5Et197eWP6YwTg3D79/R8Pnj57hFlb/uDd+d//GpEI2fiVr5587lv7fq2+urx545OguhZ5fuR72m+SUq12T4iIDACNDMNa+cx3frRbQ4fhygd/Wbv5cVgpI+fQemRsPwcEjVp9acEoZecKhWOTo09+OTs82jUmUUs5//tfdiqNj6wLUwPDF//p/zi5XDcXlUEY+cHOjWPb9csb5dsKjGa2my4N5cZODD/+ZKpY6vWumuury++/Xb07KxsV5BbsRAsABI16fWl+yVCqNDx4/onRJ57cmT+zHwLLm+ufvh9srkVhEHm+bNZIKWwtZRwpR6Okt7568cV/6QrZRqvFd68tv/+OURFyS6SzsCd207ptzsF2o0b93jt/3Lj1yalvfq84ObXrm0G1XJm9KVIZRNRRtPrJe0dAtpZy7caH3HWQC6N1efrjY1ef3WuNzV97Y+XDd43WiICMAyKzbIjD2p2UIwBgzC+v60jybeHD+vLS7G9/6a0vMsvhqfTBjyyY7eooWp/+dPP29eHHnz7+zNe7tQsRuZ3eNtYRJWhUqosLIxce626r2Kc8A3dv4AhAzfXVxtry6vUPhs5/aeLqV+x0psulWXznTysfva2VYkJwNwv7vbgIAFwAYliv3v3zm+vXPzj1/PcLxycP0tOL77+99NbvtFEICIwhY3y/pWSWU1+a78qCVFF0+5e/uPvW7wmAWQ4y1lpjIqOVkaGRodGSOtnMRMi5cBzp1W/98r/Wb13f++StF5gIGdN+80juM6W8BiIDIgQgIBVFu76z9N5bi+9eQ8a4bTPLRs5b3I4IiAAIiMgYMkZHoZXOMmsL1uu3b9546d/98hp30sh4B9ZkjNHKKGm0Mka3JpQIGeOWA9xa+fDtm6/8v6hRP0C/6j3L3LqTB/mFyJXv9dm6BWDC4pYDQMsf/OXGS//WXFu974/JwJ/+5Uv33vkDAHLLRmSdKTJKGhkaGRktiXaghTtO2KjdevX/bszc2nfY9Zuf3Pvj68AYtxxm2YyLlrWweym1Dn13YOj+PJuMmXnt5Y07n4ptGZJaSoYkUuns0KRwHSCQYRhuriq/YQwgsthfi1yQ0bNvvmKlM4VjJ7a5utgOHXFk22XHGIg7NVHkeSsf/Te3nc74pLUxmsW7FiEAouDcTnEnNVAanLjylc6NlGfvzPz658CAiXYNr1JAxBhYmYJdGOBCGGNksyGrG8ZIQ8Dj7GpEbrv1xfnpX790/kf/U+yNtNPeGZZwJC6CzDqiqicN2+s748emLVJJaIiQDDERAwhFyvXK67de/c8LL/6vQ5iJVvLOb16pzN4UqVSnk4tRkiGIVCY7OGm5LhHJMAg21rVfN7SFFiaE0Wr2tV/Y//CT3Nj4LkfFygd/Bs62lpKMUYp1UvWIoWDcyXDLcfOFiStfuT+yF9/988ad66JN8I3WAFSaOjfyxJXs8CgTdownMkRahY16eX5m7aP/DuvlOOMHGTdKzv/htUv/9L8P3KCPhmxE5JbRQcu5gLjL1g4q62F1k6cy8WoZLe1MbvDMpczYMTudEY7LLZsJBsjiye1YsUGlPPvmK4TAGI9nUcswMzw6dOFy8eRpO52JWU2sJLSMaosL69ffq87Po9VSJNx26ovzd//021Pf/O7h/Nhy3VPf/jETondYs7nf/cbfXEXWWxKUkeHQ+ccmnvk6aY3IkTHcAggYrY2SKoqCark2f6cyd0vLiFk2EHDLjRr12TdeufA/fnKQsb749rXy7E3RZm6kNQANnb0w/NjTmcEhZtmtw30MkVFBrVaeu732ybthvcYtBwAYF1rK+T++dvEff8K3zYm3vhbUm8hFZ9/jtjty8cnsxKSdzQjb5bbNOQfGEBG52OWQ2Gdym2urS+/9uZMYSUYLS5x6/ocDU+d2oREZIrNSA6XUQGn4wmMzb/6yPHszVmNM2N7a0ubs9MiFfYuUqKMXe4c2O9SH04DOTmiM5WbOfO/HuZHR+9rd89del36DWU7r70ZPXP3axJWvcMvac33GhBg8c6F0+vz6zY/nr71upIyhxmx37fqHpXOX8uPHDrkaMsyNTfAjzQATFhH1qhXIkHDSbq54+Ndyo+PD5x9rrq/O/uHXzaW7zHIAiFl2bXFh9dMPx554au+P1JYWlj96WzhOS5UYbaXSU89/f6+hFaMlXRpMlwaHzz92542XawuzsSpkltVYvludu1M6c36LD3t1FXgd+xIBzn73H/LHTh49UrP0/p+1imIAERFj/NwP/rl0+tzhStZyU2de+FF+7LhRsrV+Qmxc/7DfTllAxnZu47iH0W59zgwO3hfWAFBdmK3MTrdgDWCUGn/62RNf/vpuWO95yYYvPHHmOy8iMmqfPGa0XPn4vfvQKQJ49HmUXV8xMzRy/vv/nB0/YaRs3TEXa5++t9ekIYLl9/9ipIKWVjZc8HM/+PFeWO8SO5M9971/zAyNGq3auOfrtz7duZQKjI7X1yiZnTiRHTvegwrY9Xe/slmdn4n1bryLjV99Ljfe1YhcWMe/+nxnU0DGwvqm7LOJg7BFPyhWoLu07473LdeV32rt43dga2tW2dGJiStf7fKGipNTo5efIS3bRrpdm7sVNRuf68iU5bqTz36bCRG/D0wIb321ubq4Gy0ba5W5O51aCqPVsWe+mR0e6wottnP82W9he72Qc2/1nmkfJtGOZ20xbMt1e6p03o3s6t155Tdi9JBWbnFw+EIPNc+ZobHsxMmW2kbUyoTN5kObfwQC2tn1hoyBLToCHZZ2iPiVcn11uf1NJCVHLz/NeunTN3b5aTudj91EiGi0rt5bgM+5ZEfGCiemtkGNqov3dn1nc3a6s0kardKloeELT3R/ifz4sdTwOMVtMBAMqchr7vIebZWH9rjJ7V6/yswNFHbLFDCmcHzq8LDi7uE4c7IZIN1CCRFp1X9Adx59j2/kcIft/sjeWInqtVYintF2rpgdmehRw6UGzl40KuoYZM2lzz2yASB3/BS0p5dxq75wezfJXrjTSs0FAGMKJ88dzt/2MG9u5/K0hRbQbf4DAA9I19jO0IyO6pUtEw2h0GO1c1Cr1hbvIrc7bKFXK/6+RJtxvu2p8cHzEBqbG9jedsno9ECxy5D1Ltur41NDROk/IjbyUE96SA2Utk5JQZReXUXhNh92oAJvyyNh9MDkqZ7G9yvlxtJCe7ckBDqEbyDrsdfXDmew72mtYFs8NJXvqseSllIFQWN1cfHda1G92vJ7EDCOfU7XJDJa9/cssaC80XmZyRjhZo6Q0OIWSyKTM7HljSijUCvFxUNPf6eHdvQUAFipFG7b/YwxUbMh2qxa+p6ScgstwrYzuS7RIn2vsXzv3rt/1KHfLsgARN5HtOyYehUERrfaFVEcJer4/ohIazJay0h6fhR4UaMRVjdUo6qiUIZh2GjKWoVZ1pY7j4gz2zlI/x1d19AOV8kDZ6uFm+tb2xRjIpM7yjym0sJ1o1oIHBCZCiNzCLLxAQJVj1C4sDtKBAGNMtLzoF30oALfSNX2VWsrV9iqX47RorWKQhn6kefJRiOslVWzqsJABkFQr6tGjdn2FpkB4La7nfoiPhBOdky9UZKI2j0vEJm9/skHWisZ+JHvRfV6VKuQigCJAIgYGQNkEBEYQ2R8Z6mpjsLCE1cPYAvYdg72DusdJiPuhghiJ7DW7YhxplSbSFjp3JFAYHHBCCieOx1FBxsYBI8kjTW2HHqZib1WE0fAztEQZIwKt3KqTBRqGbWINSKQWb/+gdEy8pqR50fNRlTZJCUBDQESIBnaQgvju3JydOgPPv3VI5hJXSF79wpoNf+n3wISMERkyDggi1lR64jEA1gRGW3CMD9xauLpL3ejenuilUbLbe2UdrcjY4z1OvJO30obEL0bANubJYAx9IWr/Cei7eSHjALSAFZs7kivMX/tDUCKjaG4GRCK7WjZPVxnHB1GA5PnRp94uo93Kw5fLb5/xT/GyQZkDJGJPwAy5MiIANApDA6eOTfyxNMHJeDikV9HIlLR1haJfbAgcZcj0eh++m++QII7txrk1nYugci40w1aDBkCxlg8nAF3YGjw/KWRx64I235YyGZcIAJtP+6ZiKjlSyQTp5hpIgOGUAgrW7RSjuW4wk5Z+aJbGnbzBTebs1Kp+ziSESgKjohsoxBFrGv32stxYKEntY2WgE40yZAOjnJjRiltdCeugPyLUGqkldxKIScAzvk2C48JCzmH7S2eO2ihFmLAtNHChZUvWinXchxhp+xCyR0YcnN5J5cXjssegqm9Y0RuO4xzIzu8k4AxzhnjjDHBHdcpDrnFASebd1Jp7roileGOyy2rdzMOjT7aZk1gtu1re5jDETSuXSj5lU2EVmG5alSPAoIo1JGEdo4ltyzGP/8npURRR0cQAOdMbLPwuOMyyzYy7Chy5IwxZFxwJriTsgeGnHzBzeWcdJa7Lk9lhO0cCS0PjGw7nWJsy1tMWo0/883BqfPcti3XfUAlxCwLELdFlYxRqteXVUXRVj4QkUhlH3wKnEKpkzeMCCr0jzBI1KjJZjN+HCJjpRxmfe6PQJC+t322EXF7FYJwU9ziJmo701R07GvfLZ6YEpYtHhgtDy47Ls8tWzjpjuVDBNprpopFO51+8BvllgUELVMbwRgVeT2nlISNxjamQUfzY+ySzMAAdbz4jIW+tzf1574SVDZJhe3EILLdDHs0S/sw1Z9frVAHIUTcTtnpLZ3tZDKW5XSyG4hAB36qULT6gZY+IxsAcidOgpEd+6w6Py19vy9X4sIWbquVNQKqSHkbq70O0lhZpG3Mw+qukOlwcQcGmdVKwmRceOtrYa3c6yCbs9OdrARE5pRGHtH6dY+h3n01wfpixxlCRmf2JMalhiegUybDWHnmpj6iM/fhI7tw/CQZ0/JecOFXNjemP+2PcrGs9NixdvoLGhnuKlzrCtmLM53xSGsnn999FcYATE+qLF0aTpeGOv510nLj9o2e7qq+stRYbEeJiRjHwvFTj9Bj0dW3es3pjjyvtrzYqsNANEoWJk7s+s7A1Flqh4QZF/7G2ub0jb9SZGeGx9LD46aTkynspXf+6G2u92UFsqVBo1on3DHb2Zy+GdZrPQBo6V59eZlxq2XSIE/vKWE6gnXCLatwYqpDtZllr338vrex1r1XZOHam0ZvRePc4mBmcOizX1tqB4UAAFDL3ijW6ifvBZsbrUQxre1cITu6O1EsOzLuFEtktnKs7/7l90G1/NeIbGE7wxcukzYdFSijcPo3P/crmw9+sfzkGctNdxp3yGZt4U9vkO7Km6GCYP7a66ZNiI1W6cHhVGl4ny23d6fLyGNPWrYTgxuRaRndeeOVbt460nr2d7+uLy1slU5KNXzpqS6I5kOP46BgyLCTYF1fXuyeWK7d/GTp/be2Eq9VVJw85RaKu75mpVLDF7+0rUCBS78x/auf+ZXyXx2yAWDkscuZ4bHO7sy4CDY3Pv3Zv67d+Pjw/BsyRvpe9d78+u2b0X4FB9nh0fzxU52UX2Y7G7dv3vrVz4Ja5fC7bK6v3Hj535tryx0AkdalMxf2JtCQ0YA9hyGdXGH0qS+btuHIhPDWV67//N/Kc7cPoafextr1X/zH2o0POtk1Rsn00PDg+cfuxwzgEUQo7XyJpzMtw4bxoLJ5989vbE8T3ZeL+9XynTdenXn95Y6jmoi444xfeXbfnxi7fDU9NLoNLZa3vnb95/+2fus+aDFaR16zcnduffpmv2y5A71+nXU99c3v3XjpX7XWrF1grKNg5vVfrHz4l4Gp85mRCSc/wCwLgHQQRo1aWFkPGrXmxrq/umR0ZKQafuKZ08/vU+g6cfW56twdMjrObuWWVZm9XV9cKJ46lxkccQeGRDrDhQBEo5T0m8Hman1lqTo3bbTZ0otaurniyBNX+jgR45efqc3P1Rbn4kAaE1ZUr9165T+zY8cHTp5ODY7amVwcmJC+728s1xYXKnO3yCC3OqdzGEQ8/uy3+xtLO7rPpzRsp9ygWotD3Nxx1q5/1FhbKxw/IWwnLu9vFbAbMFrKwPPWNxpLC1orbrUq5InIROHk1757UO06t+xT33jhxkv/0VlTZjnS9+689ovlD98tnTqfGRm3c3luO3EbjLBWjaobQb3aWF/z15aItA6iiaeenfzGt/u7se3vTs6OjJ3+zo9u/+YXRqs44oCMI+Pe5kZz9bfMdoTdKl832mipdBggAgqLMY7cRkNG7h/JywwNn/j6C3O/e7WTWs0s2xjauPnRmjbcdrhlAcM4IqO10oHPuGDCYu226mQ04+Lkt/6+p95Z99+8hJh64Ue3Xv5Pb2M13oWRCwRoLN+r351jjsstEadbGWV04CNjaNkd0kFGA5kTz70wcL8SwAdmz9Tl4jPBhy89Nff7X7eCBgTMsoPKure2GKO5k05GBhABGCLnjFuc2Z1raemPXv7y2OWrh9xRbvzE1HdevPObnxuK0UKMcWDcW19tLN/jtsstwQQnY8iQjqSOQmSIXMT9Q1BobcIDH/SoGV0HBkoGps5feDE78+ar/sYKsx1EDkCMC+ACiFQYbTfaxBbIEAB0JDODB7q9Rh+7TGTu/vE1I6O4OhoR0XKYDUSkleycsoWA2xueAIKOIm5ZU8//sNiN86HHZFE3lz//w3+ZeePl6sIME1ZcjsCEBcICIh3JzrC7EiR0FArbOfG1vx+5uH+t1FYfotaa0ZGzWHcEgBDw0AL40cev1BZmy/O3hZPqGHnc6UojGCXBwLGr3zh29dn73uzg2fOW+y8zb74aVMvMjo8eJsYF44IoRrM8AC1kNKX2dZK22uUc0XXPf/rTnx7IPrO50tmLQBCU11TgAbLWW447BBCJWt16jAzI6MLJsxNXnztkU86OjGXHjweVjaCy0eZzhK106x0jt3BAhpQySubGTpx+4cXiwbUbKvDXPnmPCQuITBiNPH4l00sPduE4pbMXhe365XXZrO9Ivdp+Y0BkiMgYJYF0cfLM6Rf+4TBtjbA+fV16DUQ0SqaKg6NHpVJBpVK5M81sTsaQUhNPP7u9TePeN6o4eUb6XnN1mbSCdup9nGq7B0gERGAMaWm0zo0fn/rWD0YuXe4y7OLki6Wzl0Brv7ymQy9Oecc9sg0t2sgQiAZOnT/2d8/u7VEhw2Dj1sexnWCkHDh1Pn+8h/NPsBtTJqhVN+/c3Lz1SeTVZBCRkls5m4YIkTuusC07nSuePl8YP5EaGu6mmYaWsr64sHbz4+bKXS2liiJSasd5nwwZF8y2hSXSpeGhS08VT5w6PCBvtJr7w2vVudsAlBk5MfXt7x+N9UbNRnnuzubND4N6RUuto5C07myMzHKELYTt5I6fHjp3MTM6cd+ISWVh9u4fXtcqYHbq5De+d2hDksNvrDn7+it+ZRUAilOXJp97/r6OTjKmvnRv/danjaV5o6VW2ihlZETGxMkOiAiMc8viluCWkzt+qjR1Ljd27GiJSkGtsjF9fXP6euTVVRBS7A9t0R5CRO66wrLsTLZw+mJh/ERqaIQfkDl89y9/2Lj+EZFODY6c/s6PeirJxe6NdCLyKxV/YyWqVZQMSWtkjAnLctNOccgdKDmZI0YEVRT55c2wVtahT23PCXKOnHE7befybnHAcno4QStu2NyX0qPQawaVsqxXdOC3/AxCWJm8kx9IFQo9rT0RxWc3PnhKkJYSEHutRiMi6fuR15TNhg48I8O42zBwZHbKSmWdXN7JZvsSGyciv1L21ldkvaqigIxBhtxyhJtyBoZTA4NdnrBjtNZSit57liMlR+Ml8kWU5EyJRBJkJ5JIguxEEvls5f8DG7w1CRVuhcEAAAAASUVORK5CYII=';
 const docRecs = new Map();
-const DOC_SLOTS = ['cover', 'b1a', 'b1b'];
+const DOC_SLOTS = ['cover', 'b1a', 'b1b', 'rack'];
 const dk = (slot, id) => `doc:${id || S.doc.id}:${slot}`;
 const fv = k => String((S.doc.f || {})[k] || '').trim();
 const DW = 1654, DH = 2339, DL = 100, DR = 1554, DBLUE = '#1F5FBF';
@@ -1768,11 +1876,12 @@ async function dPage1(n){
   let r = 0;
   const row = (lk, v) => { dLbl(x, tr(lk), LX, r); dVal(x, v, VX, r, DR-VX-30); r += RH; };
   const tt = tr('title'); dText(x, tt, DW/2, 205, {font:DFB(50), align:'center'}); const tw = x.measureText(tt).width; dLine(x, DW/2-tw/2, 214, DW/2+tw/2, 214, 3);
-  let y = 245; const h1 = 46+RH*7+14; dBox(x, DL, y, W, h1, tr('sec_general')); r = y+46+RH-6;
+  let ne = 1; for(let i = 1; i <= 5; i++) if(fv('exec'+i+'Name') || fv('exec'+i+'Company')) ne = i;
+  let y = 245; const h1 = 46+RH*(5+ne)+14; dBox(x, DL, y, W, h1, tr('sec_general')); r = y+46+RH-6;
   row('projectName', fv('projectName')); row('projectNrEF', fv('projectNrEF')); row('projectNrC', fv('projectNrC')); row('date', fv('date'));
   dText(x, colon(tr('name')), VX, r); dText(x, colon(tr('company')), 1080, r); r += RH;
-  dLbl(x, tr('execBy'), LX, r); dVal(x, fv('exec1Name'), VX, r, 480); dVal(x, fv('exec1Company'), 1080, r, 440); r += RH;
-  dVal(x, fv('exec2Name'), VX, r, 480); dVal(x, fv('exec2Company'), 1080, r, 440);
+  dLbl(x, tr('execBy'), LX, r);
+  for(let i = 1; i <= ne; i++){ dVal(x, fv('exec'+i+'Name'), VX, r, 480); dVal(x, fv('exec'+i+'Company'), 1080, r, 440); if(i < ne) r += RH; }
   y += h1+26; const h2 = 46+RH*7.6+14; dBox(x, DL, y, W, h2, tr('sec_client')); r = y+46+RH-6;
   row('clientName', fv('clientName')); row('address', fv('clientAddress')); row('postcode', fv('clientPostcode')); row('city', fv('clientCity')); r += RH*0.6;
   row('contact', fv('clientContact')); row('phone', fv('clientPhone')); row('email', fv('clientEmail'));
@@ -1811,8 +1920,18 @@ async function dPage2(n){
   const pair = (lk, tk, lnk) => { dLbl(x, tr(lk), LX, r); dText(x, colon(tr('type')), VX, r); dVal(x, fv(tk), VX+92, r, 330); dText(x, colon(tr('length')), 1230, r); dVal(x, fv(lnk), 1350, r, DR-1350-24); r += RH; };
   pair('pvc', 'pvcType', 'pvcLen'); pair('tray', 'trayType', 'trayLen');
   y += h1+28; const h2 = 760; dBox(x, DL, y, W, h2, tr('sec_start')); r = y+46+RH-6;
-  sub(tr('sub_rack')); row('rackRoom', fv('rackRoom')); row('rackName', fv('rackName')); r += RH*0.6; row('peType', fv('peType')); row('agreedHeight', fv('agreedHeight')); row('units', fv('units'));
-  const nt = fv('startNotes'); if(nt){ x.font = DF(23); wrap(x, nt, W-80).slice(0, 7).forEach((l, i) => dText(x, l, DL+40, r+RH*0.6+i*RH, {color:DBLUE})); }
+  const rack = await docCanvas(dk('rack')), SQ = 360, sqX = DR-36-SQ, sqY = y+58;
+  if(rack){ x.fillStyle = '#fff'; x.fillRect(sqX, sqY, SQ, SQ); dContain(x, rack, {x:sqX+4, y:sqY+4, w:SQ-8, h:SQ-8}); x.strokeStyle = '#999'; x.lineWidth = 1.5; x.strokeRect(sqX, sqY, SQ, SQ); }
+  const vmax = rack ? sqX-24-VX : DR-VX-30;
+  const row2 = (lk, v) => { dLbl(x, tr(lk), LX, r); dVal(x, v, VX, r, vmax); r += RH; };
+  sub(tr('sub_rack')); row2('rackRoom', fv('rackRoom')); row2('rackName', fv('rackName')); r += RH*0.6; row2('peType', fv('peType'));
+  { const ah = fv('agreedHeight'); dLbl(x, tr('agreedHeight'), LX, r);
+    if(rack){ const isArrow = !ah || /^[\s\-—–=>→]+$/.test(ah); let sx = VX; if(!isArrow){ dVal(x, ah, VX, r, vmax-80); sx = VX + x.measureText(ah).width + 16; }
+      const ex = sqX-12, ey = r-8; if(ex-sx > 40){ x.strokeStyle = DBLUE; x.lineWidth = 4; x.beginPath(); x.moveTo(sx, ey); x.lineTo(ex-16, ey); x.stroke(); arrowHead(x, sx, ey, ex, ey, 22, DBLUE); } }
+    else dVal(x, ah, VX, r, vmax);
+    r += RH; }
+  row2('units', fv('units'));
+  const nt = fv('startNotes'); if(nt){ x.font = DF(23); wrap(x, nt, rack ? sqX-DL-60 : W-80).slice(0, 7).forEach((l, i) => dText(x, l, DL+40, r+RH*0.6+i*RH, {color:DBLUE})); }
   r = y+h2-20-RH*4.6; sub(tr('sub_cpe')); ['cpe230','cpeAir','cpeDust','cpeEtsi'].forEach(k => row(k, fv(k)));
   y += h2+28; const h3 = DH-130-y; dBox(x, DL, y, W, h3, tr('sec_remarks'));
   const rm = fv('remarks'); if(rm){ x.font = DF(23); wrap(x, rm, W-60).forEach((l, i) => { const yy = y+46+RH+i*RH; if(yy < y+h3-14) dText(x, l, DL+30, yy, {color:DBLUE}); }); }
@@ -2001,6 +2120,7 @@ function renderDocForm(){
   const ext = S.pages.filter(p => pageSec(p) === 'ext' && p.photos.length).length, int = S.pages.filter(p => pageSec(p) === 'int' && p.photos.length).length;
   const field = ([k, lk, type]) => {
     if(k === '#') return `<div class="dsub">${esc(tr(lk))}</div>`;
+    if(k === '@slot') return `<div class="dslots" style="margin:6px 0 10px">${slotHtml(dk(lk), tr(type))}</div>`;
     const lab = esc(tr(lk || k)), v = esc(f[k] || '');
     return `<div class="dfield"><label for="df-${k}">${lab}</label>${type === 'area' ? `<textarea id="df-${k}" data-k="${k}" rows="3">${v}</textarea>` : `<input id="df-${k}" data-k="${k}" value="${v}" autocomplete="off">`}</div>`;
   };
@@ -2049,7 +2169,7 @@ function setDoc(i){ S.docIdx = clamp(i, 0, S.docs.length-1); S.doc = S.docs[S.do
 function keepScroll(fn){ const b = $('#docv .dbody'), sc = b.scrollTop; fn(); b.scrollTop = sc; }
 function normDocs(){
   if(!Array.isArray(S.docs) || !S.docs.length) S.docs = [DOC_DEFAULT()];
-  S.docs.forEach(d => { d.id = d.id || uid(); d.name = d.name || 'Route 1'; d.f = d.f || {}; d.sel = d.sel || {}; d.sig = {c:[], e:[], o:[], ...(d.sig || {})}; delete d.logo; delete d.logoInit; });
+  S.docs.forEach(d => { d.id = d.id || uid(); d.name = d.name || 'Route 1'; d.f = d.f || {}; Object.keys(DOC_PREFILL).forEach(k => { if(d.f[k] === undefined) d.f[k] = DOC_PREFILL[k]; }); d.sel = d.sel || {}; d.sig = {c:[], e:[], o:[], ...(d.sig || {})}; delete d.logo; delete d.logoInit; });
   setDoc(S.docIdx || 0);
 }
 async function newDoc(){
