@@ -179,6 +179,17 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 .dpt span{color:var(--muted);font-size:13px}
 .pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
 .pick img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block}
+/* Login */
+#login{position:fixed;inset:0;z-index:90;background:var(--bg);display:none;align-items:center;justify-content:center;padding:calc(20px + env(safe-area-inset-top,0px)) 20px calc(20px + env(safe-area-inset-bottom,0px))}
+#login.on{display:flex}
+.lbox{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px 22px;box-shadow:var(--shadow)}
+.lbox h1{font:700 30px/1.1 "Barlow Condensed",Barlow,sans-serif;margin:14px 0 4px}
+.lbox p{color:var(--muted);margin:0 0 18px}
+.lbox label{display:block;font-weight:600;font-size:15px;margin:12px 0 6px}
+.lbox input{width:100%;height:46px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:var(--raise);color:var(--ink);font-size:17px}
+.lbox input:focus{outline:2px solid var(--yellow);outline-offset:0}
+.lbox .btn{width:100%;height:50px;margin-top:18px;font-size:17px}
+.lerr{color:var(--red);font-weight:600;min-height:22px;margin-top:10px}
 /* Overlays */
 .ov{position:fixed;inset:0;z-index:40;background:rgba(10,12,14,.55);display:none;align-items:flex-end;justify-content:center}
 .ov.on{display:flex}
@@ -224,13 +235,24 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke
 </head>
 <body>
 
+<div id="login" role="dialog" aria-label="Log in">
+  <form class="lbox" id="loginForm" autocomplete="on">
+    <div class="mark" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+    <h1>Site Survey</h1>
+    <p>Log in once on this device. You stay logged in until you log out.</p>
+    <label for="lUser">Login</label><input id="lUser" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+    <label for="lPass">Password</label><input id="lPass" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn primary" type="submit" id="lGo">Log in</button>
+    <div class="lerr" id="lErr" role="alert"></div>
+  </form>
+</div>
 <div id="home">
   <header class="hd">
     <div class="mark" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
     <input id="projName" placeholder="Project name" aria-label="Project name" autocomplete="off">
     <button id="btnSettings" class="icon-btn" aria-label="Settings"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
   </header>
-  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.12</span></p>
+  <p class="sub">Six photos per page. Tap a photo to annotate it, tap the title to rename the page. <span style="opacity:.7">Version 1.14</span></p>
   <div class="docbar"><button id="btnDoc" class="btn ghost"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg>Site Survey Document</button></div>
   <main id="pages"></main>
   <div class="dock">
@@ -916,7 +938,8 @@ function renderHome(){
         <div class="seg" role="group" aria-label="Layout"><button data-layout="grid" class="${pg.layout==='grid'?'on':''}">Grid</button><button data-layout="hero" class="${pg.layout==='hero'?'on':''}">Big first</button></div>
         <div class="seg" role="group" aria-label="Photo size"><button data-fit="fit" class="${pg.fit!=='fill'?'on':''}">Fit</button><button data-fit="fill" class="${pg.fit==='fill'?'on':''}">Fill</button></div>
         ${n < 6 ? `<button class="btn ghost small" data-add>${svg('plus')}Photo</button>` : ''}
-        ${n ? `<button class="btn ghost small" data-pv>Preview</button>` : (S.pages.length > 1 ? `<button class="btn small danger" data-rm>Remove page</button>` : '')}
+        ${n ? `<button class="btn ghost small" data-pv>Preview</button>` : ''}
+        ${(n || S.pages.length > 1) ? `<button class="btn small danger" data-rm aria-label="Delete page ${pi+1}">${svg('trash')}Delete</button>` : ''}
         <span class="count">${n} of 6</span>
       </div>
     </section>`;
@@ -929,8 +952,26 @@ function renderHome(){
     sec.querySelectorAll('[data-fit]').forEach(b => b.onclick = () => { pg.fit = b.dataset.fit; saveMeta(); renderHome(); });
     const add = sec.querySelector('[data-add]'); if(add) add.onclick = () => openCam(pi);
     const pv = sec.querySelector('[data-pv]'); if(pv) pv.onclick = () => openPreview(pi);
-    const rm = sec.querySelector('[data-rm]'); if(rm) rm.onclick = () => { S.pages.splice(pi, 1); saveMeta(); renderHome(); };
+    const rm = sec.querySelector('[data-rm]'); if(rm) rm.onclick = () => deletePage(pi);
   });
+}
+async function deletePage(pi){
+  const pg = S.pages[pi]; if(!pg) return;
+  const n = pg.photos.length;
+  if(n && !await askConfirm(`Delete “${pg.title || 'Page '+(pi+1)}”?`, `The ${n} photo${n === 1 ? '' : 's'} on this page and their annotations are deleted. Your Site Survey Document details stay.`, 'Delete page')) return;
+  for(const id of pg.photos){ photos.delete(id); imgCache.delete(id); await store.del('photos', id).catch(() => {}); }
+  S.pages.splice(pi, 1);
+  if(!S.pages.length) S.pages = [newPage()];
+  (S.docs || []).forEach(d => { if(d.sel) delete d.sel[pg.id]; });
+  saveMeta(); renderHome(); toast('Page deleted');
+}
+async function deleteAllPages(){
+  const ids = flatIds();
+  if(!ids.length){ toast('There are no photos to delete.'); return; }
+  if(!await askConfirm('Delete all pages and photos?', `All ${ids.length} photos are deleted. The project name and every Site Survey Document (fields, cover, rack and Bijlage 1 photos, signatures) stay.`, 'Delete photos')) return;
+  for(const id of ids){ photos.delete(id); imgCache.delete(id); await store.del('photos', id).catch(() => {}); }
+  S.pages = [newPage()]; (S.docs || []).forEach(d => d.sel = {});
+  saveMeta(); renderHome(); closeSheet('sheet'); toast('Photos deleted. Document details kept.');
 }
 $('#btnExportAll').onclick = () => exportPDF(S.pages.map((_, i) => i));
 
@@ -965,6 +1006,8 @@ function openSettings(){
     <div class="field"><div><b>Symbols and labels</b><br><span style="color:var(--muted);font-size:14px">${S.presets.length} saved</span></div><button class="btn ghost small" data-pre>Edit</button></div>
     <div class="field"><div><b>Save photos to phone</b><br><span style="color:var(--muted);font-size:14px">Every photo is also downloaded at full size, so it shows in your gallery (Download album)</span></div><button class="switch ${S.saveToPhone ? 'on' : ''}" data-s2p role="switch" aria-checked="${!!S.saveToPhone}" aria-label="Save photos to phone"></button></div>
     <div class="field"><div><b>Continue on another device</b><br><span style="color:var(--muted);font-size:14px">Export this project as one file, open the same link on your computer and import it</span></div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn ghost small" data-exp>Export</button><button class="btn ghost small" data-imp>Import</button></div></div>
+    <div class="field"><div><b>Log out</b><br><span style="color:var(--muted);font-size:14px">Your data stays on this device; you need the password to open it again</span></div><button class="btn ghost small" data-logout>Log out</button></div>
+    <div class="field"><div><b>Delete all photos</b><br><span style="color:var(--muted);font-size:14px">Start over with photos, keep the Site Survey Document details</span></div><button class="btn small danger" data-delpages>Delete photos</button></div>
     <div class="field"><div><b>New project</b><br><span style="color:var(--muted);font-size:14px">Deletes all photos, pages and documents. Symbols and logo stay.</span></div><button class="btn small danger" data-reset>Start over</button></div>`,
     p => {
       p.querySelector('[data-close]').onclick = () => closeSheet('sheet');
@@ -975,6 +1018,8 @@ function openSettings(){
       p.querySelector('[data-s2p]').onclick = () => { S.saveToPhone = !S.saveToPhone; saveMeta(); openSettings(); };
       p.querySelector('[data-exp]').onclick = () => exportProject();
       p.querySelector('[data-imp]').onclick = () => $('#projIn').click();
+      p.querySelector('[data-logout]').onclick = logout;
+      p.querySelector('[data-delpages]').onclick = deleteAllPages;
       p.querySelector('[data-reset]').onclick = async () => {
         if(!await askConfirm('Start a new project?', 'All photos and pages are deleted from this device. Export your PDF first if you need it.', 'Delete everything')) return;
         for(const id of flatIds()) await store.del('photos', id);
@@ -2206,8 +2251,38 @@ $('#docLogoIn').onchange = async e => {
 };
 
 
+/* ---------- login ---------- */
+const AUTH_HASH = '786e17972a98116ea02588d6928d2c054301699b291bb2457e7318867e498e10';
+const AUTH_KEY = 'ss-auth-v1';
+async function authHash(user, pass){
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(user + '\n' + pass), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({name:'PBKDF2', salt:enc.encode('site-survey-login-v1'), iterations:150000, hash:'SHA-256'}, key, 256);
+  return [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function isAuthed(){ try{ return localStorage.getItem(AUTH_KEY) === AUTH_HASH; }catch(e){ return false; } }
+function requireLogin(){
+  if(isAuthed()) return Promise.resolve();
+  return new Promise(res => {
+    const ov = $('#login'), err = $('#lErr'), go = $('#lGo'); ov.classList.add('on');
+    setTimeout(() => $('#lUser').focus(), 50);
+    $('#loginForm').onsubmit = async e => {
+      e.preventDefault(); err.textContent = ''; go.disabled = true; go.textContent = 'Checking…';
+      let h = '';
+      try{ h = await authHash($('#lUser').value.trim(), $('#lPass').value); }catch(_){ err.textContent = 'This browser can’t check the password. Use Chrome over https.'; }
+      go.disabled = false; go.textContent = 'Log in';
+      if(h && h === AUTH_HASH){
+        try{ localStorage.setItem(AUTH_KEY, AUTH_HASH); }catch(_){}
+        $('#lPass').value = ''; ov.classList.remove('on'); res();
+      } else if(h){ err.textContent = 'Login or password is wrong.'; $('#lPass').select(); }
+    };
+  });
+}
+function logout(){ try{ localStorage.removeItem(AUTH_KEY); }catch(e){} location.reload(); }
+
 /* ---------- boot ---------- */
 (async () => {
+  await requireLogin();
   await store.init();
   try{
     const m = await store.get('meta', 'state');
